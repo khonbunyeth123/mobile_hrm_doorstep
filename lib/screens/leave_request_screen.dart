@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/leave_service.dart';
 
 class LeaveRequestScreen extends StatefulWidget {
   const LeaveRequestScreen({super.key});
@@ -35,10 +36,20 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
   }
 
   Future<void> _selectDate(BuildContext context, bool isStartDate) async {
+    final today = DateTime.now();
+    final minDate = isStartDate ? today : (_startDate ?? today);
+    DateTime initialDate = minDate;
+    if (isStartDate && _startDate != null) {
+      initialDate = _startDate!.isBefore(minDate) ? minDate : _startDate!;
+    }
+    if (!isStartDate && _endDate != null) {
+      initialDate = _endDate!.isBefore(minDate) ? minDate : _endDate!;
+    }
+
     final DateTime? picked = await showDatePicker(
       context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime.now(),
+      initialDate: initialDate,
+      firstDate: minDate,
       lastDate: DateTime.now().add(Duration(days: 365)),
       builder: (context, child) {
         return Theme(
@@ -58,7 +69,6 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
       setState(() {
         if (isStartDate) {
           _startDate = picked;
-          // Reset end date if it's before start date
           if (_endDate != null && _endDate!.isBefore(picked)) {
             _endDate = null;
           }
@@ -69,6 +79,7 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
     }
   }
 
+  // ── FIXED: real API call instead of Future.delayed ──
   Future<void> _submitLeaveRequest() async {
     if (_formKey.currentState!.validate()) {
       if (_startDate == null) {
@@ -91,33 +102,77 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
         return;
       }
 
+      if (!_isHalfDay && _endDate!.isBefore(_startDate!)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('End date cannot be earlier than start date'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
       setState(() => _isLoading = true);
 
-      // Simulate API call
-      await Future.delayed(Duration(seconds: 2));
-      if (!mounted) return;
+      final result = await LeaveService.createLeave({
+        'leave_type': _selectedLeaveType,
+        'start_date': _startDate!.toIso8601String().split('T')[0],
+        'end_date': _isHalfDay
+            ? _startDate!.toIso8601String().split('T')[0]
+            : _endDate!.toIso8601String().split('T')[0],
+        'is_half_day': _isHalfDay,
+        'reason': _reasonController.text.trim(),
+      });
 
+      if (!mounted) return;
       setState(() => _isLoading = false);
 
-      // Show success message
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Leave request submitted successfully!'),
-          backgroundColor: Colors.green,
-          duration: Duration(seconds: 3),
-        ),
-      );
-
-      // Navigate back or to confirmation screen
-      Navigator.pop(context);
+      if (result['success'] == true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Leave request submitted successfully!'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 3),
+          ),
+        );
+        Navigator.pop(context);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(_extractSubmitError(result)),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
+  }
+
+  String _extractSubmitError(Map<String, dynamic> result) {
+    final message = result['message']?.toString();
+    final errors = result['errors'];
+
+    if (errors is Map && errors.isNotEmpty) {
+      for (final value in errors.values) {
+        if (value is List && value.isNotEmpty) {
+          final first = value.first.toString().trim();
+          if (first.isNotEmpty) return first;
+        }
+        final text = value?.toString().trim() ?? '';
+        if (text.isNotEmpty) return text;
+      }
+    }
+
+    if (message != null && message.trim().isNotEmpty) {
+      return message.trim();
+    }
+
+    return 'Failed to submit leave request';
   }
 
   int _calculateLeaveDays() {
     if (_startDate == null) return 0;
     if (_isHalfDay) return 1;
     if (_endDate == null) return 0;
-
     return _endDate!.difference(_startDate!).inDays + 1;
   }
 

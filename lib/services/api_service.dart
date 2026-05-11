@@ -1,56 +1,105 @@
 import 'dart:convert';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import '../config/app_config.dart';
+
 
 class ApiService {
-  // ✅ Change to your server IP for mobile device testing
-  static const String baseUrl = 'http://192.168.0.199:8080/api';
+  static String get baseUrl => AppConfig.baseUrl;
 
-  // ─── Get token from SharedPreferences ───────────────────────────────────────
   static Future<String?> _getToken() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString('token');
   }
 
-  // ─── Auth headers (JSON + Bearer token) ─────────────────────────────────────
   static Future<Map<String, String>> _authHeaders() async {
     final token = await _getToken();
     return {
       'Content-Type': 'application/json',
-      'Authorization': 'Bearer $token',
+      'Accept': 'application/json',
+      if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
     };
   }
 
-  // ─── LOGIN ───────────────────────────────────────────────────────────────────
-  static Future<Map<String, dynamic>> login(
+  static Future<void> _persistLoginData(Map<String, dynamic> data) async {
+    final prefs = await SharedPreferences.getInstance();
+
+    // ✅ employee login returns 'employee', admin login returns 'user'
+    final user =
+        (data['employee'] ?? data['user'] ?? <String, dynamic>{})
+            as Map<String, dynamic>;
+
+    await prefs.setString('token', data['token']?.toString() ?? '');
+    await prefs.setString('username', user['username']?.toString() ?? '');
+    await prefs.setString('full_name', user['full_name']?.toString() ?? '');
+    await prefs.setString('email', user['email']?.toString() ?? '');
+    await prefs.setString('role', user['role']?.toString() ?? '');
+    await prefs.setInt('user_id', (user['id'] as int?) ?? 0);
+    await prefs.setInt(
+      'employee_id',
+      (user['id'] as int?) ?? 0,
+    ); // ✅ ProfileService reads this
+    await prefs.setBool('isLoggedIn', true);
+  }
+
+  static Future<Map<String, dynamic>> _loginWithEndpoint(
+    String endpoint,
     String username,
     String password,
   ) async {
+    // Get FCM token before login
+    final fcmToken = await FirebaseMessaging.instance.getToken();
+
     final response = await http.post(
-      Uri.parse('$baseUrl/auth/login'),
+      Uri.parse('$baseUrl/$endpoint'),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'username': username, 'password': password}),
+      body: jsonEncode({
+        'username': username,
+        'password': password,
+        'fcm_token': fcmToken ?? '', // 👈 new
+      }),
     );
 
-    final data = jsonDecode(response.body);
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
 
     if (data['success'] == true) {
-      final prefs = await SharedPreferences.getInstance();
-      final user = data['user'] as Map<String, dynamic>;
-
-      await prefs.setString('token', data['token']?.toString() ?? '');
-      await prefs.setString('username', user['username']?.toString() ?? '');
-      await prefs.setString('full_name', user['full_name']?.toString() ?? '');
-      await prefs.setString('email', user['email']?.toString() ?? '');
-      await prefs.setString('role', user['role']?.toString() ?? '');
-      await prefs.setInt('user_id', user['id'] ?? 0);
-      await prefs.setBool('isLoggedIn', true);
+      await _persistLoginData(data);
     }
 
     return data;
   }
 
-  // ─── LOGOUT ──────────────────────────────────────────────────────────────────
+  static Future<Map<String, dynamic>> login(
+    String username,
+    String password,
+  ) async {
+    return loginEmployee(username, password);
+  }
+
+  static Future<Map<String, dynamic>> loginAdmin(
+    String username,
+    String password,
+  ) async {
+    return _loginWithEndpoint('auth/admin/login', username, password);
+  }
+
+  static Future<Map<String, dynamic>> loginEmployee(
+    String username,
+    String password,
+  ) async {
+    return _loginWithEndpoint('auth/employee/login', username, password);
+  }
+
+
+  static void listenFcmTokenRefresh() {
+    FirebaseMessaging.instance.onTokenRefresh.listen((newToken) async {
+      try {
+        await post('auth/fcm-token', {'fcm_token': newToken});
+      } catch (_) {}
+    });
+  }
+
   static Future<void> logout() async {
     try {
       await http.post(
@@ -62,7 +111,6 @@ class ApiService {
     await prefs.clear();
   }
 
-  // ─── GET CURRENT USER (me) ───────────────────────────────────────────────────
   static Future<Map<String, dynamic>> getMe() async {
     final response = await http.get(
       Uri.parse('$baseUrl/auth/me'),
@@ -71,7 +119,22 @@ class ApiService {
     return jsonDecode(response.body);
   }
 
-  // ─── GET EMPLOYEES ───────────────────────────────────────────────────────────
+  static Future<Map<String, dynamic>> getAdminMe() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/auth/admin/me'),
+      headers: await _authHeaders(),
+    );
+    return jsonDecode(response.body);
+  }
+
+  static Future<Map<String, dynamic>> getEmployeeMe() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/auth/employee/me'),
+      headers: await _authHeaders(),
+    );
+    return jsonDecode(response.body);
+  }
+
   static Future<List<dynamic>> getEmployees() async {
     final response = await http.get(
       Uri.parse('$baseUrl/employees'),
@@ -84,7 +147,6 @@ class ApiService {
     throw Exception(data['message'] ?? 'Failed to load employees');
   }
 
-  // ─── GET SINGLE EMPLOYEE ─────────────────────────────────────────────────────
   static Future<Map<String, dynamic>> getEmployee(int id) async {
     final response = await http.get(
       Uri.parse('$baseUrl/employees/$id'),
@@ -97,56 +159,6 @@ class ApiService {
     throw Exception(data['message'] ?? 'Failed to load employee');
   }
 
-  // ─── ATTENDANCE ──────────────────────────────────────────────────────────────
-  static Future<Map<String, dynamic>> checkIn() async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/attendance/checkin'),
-      headers: await _authHeaders(),
-    );
-    return jsonDecode(response.body);
-  }
-
-  static Future<Map<String, dynamic>> checkOut() async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/attendance/checkout'),
-      headers: await _authHeaders(),
-    );
-    return jsonDecode(response.body);
-  }
-
-  static Future<Map<String, dynamic>> getTodayAttendance() async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/attendance/today'),
-      headers: await _authHeaders(),
-    );
-    return jsonDecode(response.body);
-  }
-
-  // ─── LEAVE ───────────────────────────────────────────────────────────────────
-  static Future<List<dynamic>> getLeaveList() async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/leave/list'),
-      headers: await _authHeaders(),
-    );
-    final data = jsonDecode(response.body);
-    if (data['success'] == true) {
-      return data['data'] as List<dynamic>;
-    }
-    throw Exception(data['message'] ?? 'Failed to load leaves');
-  }
-
-  static Future<Map<String, dynamic>> createLeave(
-    Map<String, dynamic> body,
-  ) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/leave/create'),
-      headers: await _authHeaders(),
-      body: jsonEncode(body),
-    );
-    return jsonDecode(response.body);
-  }
-
-  // ─── DASHBOARD ───────────────────────────────────────────────────────────────
   static Future<Map<String, dynamic>> getDashboardSummary() async {
     final response = await http.get(
       Uri.parse('$baseUrl/dashboard/summary'),
@@ -155,7 +167,6 @@ class ApiService {
     return jsonDecode(response.body);
   }
 
-  // ─── GENERIC GET ─────────────────────────────────────────────────────────────
   static Future<Map<String, dynamic>> get(String endpoint) async {
     final response = await http.get(
       Uri.parse('$baseUrl/$endpoint'),
@@ -164,7 +175,6 @@ class ApiService {
     return jsonDecode(response.body);
   }
 
-  // ─── GENERIC POST ────────────────────────────────────────────────────────────
   static Future<Map<String, dynamic>> post(
     String endpoint,
     Map<String, dynamic> body,

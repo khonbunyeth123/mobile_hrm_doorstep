@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import '../config/app_config.dart';
+import '../services/api_service.dart';
+import '../services/profile_service.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -9,14 +12,25 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController(text: 'John Doe');
-  final _emailController = TextEditingController(text: 'john.doe@example.com');
-  final _phoneController = TextEditingController(text: '+1 234 567 8900');
-  final _addressController = TextEditingController(
-    text: '123 Main Street, City, State 12345',
-  );
+  final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _addressController = TextEditingController();
 
   bool _isEditing = false;
+  bool _isLoading = true;
+  bool _isSaving = false;
+  bool _isLoggingOut = false;
+  String? _errorMessage;
+  String? _photoUrl; // ✅ photo URL
+
+  Map<String, String> _snapshot = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfile();
+  }
 
   @override
   void dispose() {
@@ -27,278 +41,447 @@ class _ProfileScreenState extends State<ProfileScreen> {
     super.dispose();
   }
 
+  Future<void> _loadProfile() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+    try {
+      final data = await ProfileService.getProfile();
+      _applyData(data);
+    } catch (e) {
+      if (mounted) setState(() => _errorMessage = e.toString());
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  void _applyData(Map<String, dynamic> data) {
+    _nameController.text = data['full_name']?.toString() ?? '';
+    _emailController.text = data['email']?.toString() ?? '';
+    _phoneController.text =
+        data['phone']?.toString() ?? data['phone_number']?.toString() ?? '';
+    _addressController.text = data['address']?.toString() ?? '';
+
+    // ✅ Build full photo URL from relative path
+    final photo = data['photo']?.toString() ?? '';
+    if (photo.isNotEmpty) {
+      final base = AppConfig.baseUrl.replaceAll('/api', '');
+      _photoUrl = '$base/$photo';
+    } else {
+      _photoUrl = null;
+    }
+
+    _snapshot = {
+      'name': _nameController.text,
+      'email': _emailController.text,
+      'phone': _phoneController.text,
+      'address': _addressController.text,
+    };
+  }
+
+  Future<void> _saveProfile() async {
+    setState(() => _isSaving = true);
+    try {
+      await ProfileService.updateProfile(
+        fullName: _nameController.text.trim(),
+        email: _emailController.text.trim(),
+        phone: _phoneController.text.trim(),
+        address: _addressController.text.trim(),
+      );
+
+      _snapshot = {
+        'name': _nameController.text,
+        'email': _emailController.text,
+        'phone': _phoneController.text,
+        'address': _addressController.text,
+      };
+
+      if (!mounted) return;
+      setState(() => _isEditing = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Profile updated successfully!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Save failed: $e'), backgroundColor: Colors.red),
+      );
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  void _cancelEdit() {
+    setState(() {
+      _isEditing = false;
+      _nameController.text = _snapshot['name'] ?? '';
+      _emailController.text = _snapshot['email'] ?? '';
+      _phoneController.text = _snapshot['phone'] ?? '';
+      _addressController.text = _snapshot['address'] ?? '';
+    });
+  }
+
+  Future<void> _showLogoutDialog() async {
+    final shouldLogout = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Logout'),
+        content: const Text('Are you sure you want to log out?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Logout', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldLogout != true || !mounted) return;
+
+    setState(() => _isLoggingOut = true);
+    try {
+      await ApiService.logout();
+      if (!mounted) return;
+      Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isLoggingOut = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Logout failed. Please try again.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
-        title: Text('Personal Information'),
+        title: const Text('Personal Information'),
         backgroundColor: Colors.orange,
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
+          if (!_isLoading && _errorMessage == null)
+            IconButton(
+              icon: _isSaving
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : Icon(_isEditing ? Icons.save : Icons.edit),
+              onPressed: _isSaving
+                  ? null
+                  : () {
+                      if (_isEditing) {
+                        if (_formKey.currentState!.validate()) _saveProfile();
+                      } else {
+                        setState(() => _isEditing = true);
+                      }
+                    },
+            ),
           IconButton(
-            icon: Icon(_isEditing ? Icons.save : Icons.edit),
-            onPressed: () {
-              if (_isEditing) {
-                if (_formKey.currentState!.validate()) {
-                  _saveProfile();
-                }
-              } else {
-                setState(() {
-                  _isEditing = true;
-                });
-              }
-            },
+            onPressed: _isLoggingOut ? null : _showLogoutDialog,
+            icon: _isLoggingOut
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Icon(Icons.logout),
+            tooltip: 'Logout',
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: EdgeInsets.all(16.0),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator(color: Colors.orange))
+          : _errorMessage != null
+          ? _buildError()
+          : _buildBody(),
+    );
+  }
+
+  Widget _buildError() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            // Profile Header
-            Container(
-              width: double.infinity,
-              padding: EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12.0),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.grey.withValues(alpha: 0.1),
-                    spreadRadius: 2,
-                    blurRadius: 8,
-                    offset: Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Column(
-                children: [
-                  // Profile Picture
-                  Stack(
-                    children: [
-                      CircleAvatar(
-                        radius: 50,
-                        backgroundColor: Colors.orange.withValues(alpha: 0.2),
-                        child: Icon(
-                          Icons.person,
-                          size: 60,
-                          color: Colors.orange,
-                        ),
-                      ),
-                      if (_isEditing)
-                        Positioned(
-                          bottom: 0,
-                          right: 0,
-                          child: CircleAvatar(
-                            radius: 18,
-                            backgroundColor: Colors.orange,
-                            child: IconButton(
-                              icon: Icon(
-                                Icons.camera_alt,
-                                size: 16,
-                                color: Colors.white,
-                              ),
-                              onPressed: () {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      'Photo update feature coming soon!',
-                                    ),
-                                    backgroundColor: Colors.blue,
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                  SizedBox(height: 16),
-
-                  // User Name (read-only display)
-                  Text(
-                    _nameController.text,
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.grey[800],
-                    ),
-                  ),
-                  SizedBox(height: 8),
-                  Text(
-                    _emailController.text,
-                    style: TextStyle(fontSize: 16, color: Colors.grey[600]),
-                  ),
-                ],
+            const Icon(Icons.error_outline, size: 64, color: Colors.red),
+            const SizedBox(height: 16),
+            Text(
+              _errorMessage!,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.red),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: _loadProfile,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Retry'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange,
+                foregroundColor: Colors.white,
               ),
             ),
-
-            SizedBox(height: 24),
-
-            // Personal Information Form
-            Container(
-              width: double.infinity,
-              padding: EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12.0),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.grey.withValues(alpha: 0.1),
-                    spreadRadius: 2,
-                    blurRadius: 8,
-                    offset: Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(Icons.person_outline, color: Colors.orange),
-                        SizedBox(width: 8),
-                        Text(
-                          'Personal Details',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.grey[800],
-                          ),
-                        ),
-                      ],
-                    ),
-                    SizedBox(height: 24),
-
-                    // Full Name
-                    _buildTextField(
-                      controller: _nameController,
-                      label: 'Full Name',
-                      icon: Icons.person,
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter your full name';
-                        }
-                        return null;
-                      },
-                    ),
-
-                    SizedBox(height: 16),
-
-                    // Email
-                    _buildTextField(
-                      controller: _emailController,
-                      label: 'Email Address',
-                      icon: Icons.email,
-                      keyboardType: TextInputType.emailAddress,
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter your email';
-                        }
-                        if (!value.contains('@')) {
-                          return 'Please enter a valid email';
-                        }
-                        return null;
-                      },
-                    ),
-
-                    SizedBox(height: 16),
-
-                    // Phone Number
-                    _buildTextField(
-                      controller: _phoneController,
-                      label: 'Phone Number',
-                      icon: Icons.phone,
-                      keyboardType: TextInputType.phone,
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter your phone number';
-                        }
-                        return null;
-                      },
-                    ),
-
-                    SizedBox(height: 16),
-
-                    // Address
-                    _buildTextField(
-                      controller: _addressController,
-                      label: 'Address',
-                      icon: Icons.location_on,
-                      maxLines: 3,
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter your address';
-                        }
-                        return null;
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            SizedBox(height: 24),
-
-            // Action Buttons
-            if (_isEditing)
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: _cancelEdit,
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.grey[600],
-                        side: BorderSide(color: Colors.grey[400]!),
-                        padding: EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      child: Text(
-                        'Cancel',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-                  SizedBox(width: 16),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        if (_formKey.currentState!.validate()) {
-                          _saveProfile();
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.orange,
-                        foregroundColor: Colors.white,
-                        padding: EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      child: Text(
-                        'Save Changes',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-
-            SizedBox(height: 32),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildBody() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          // Profile Header
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.grey.withValues(alpha: 0.1),
+                  spreadRadius: 2,
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                Stack(
+                  children: [
+                    // ✅ Show photo if available, otherwise show icon
+                    CircleAvatar(
+                      radius: 50,
+                      backgroundColor: Colors.orange.withValues(alpha: 0.2),
+                      backgroundImage: _photoUrl != null
+                          ? NetworkImage(_photoUrl!)
+                          : null,
+                      onBackgroundImageError: _photoUrl != null
+                          ? (_, __) {}
+                          : null,
+                      child: _photoUrl == null
+                          ? const Icon(
+                              Icons.person,
+                              size: 60,
+                              color: Colors.orange,
+                            )
+                          : null,
+                    ),
+                    if (_isEditing)
+                      Positioned(
+                        bottom: 0,
+                        right: 0,
+                        child: CircleAvatar(
+                          radius: 18,
+                          backgroundColor: Colors.orange,
+                          child: IconButton(
+                            icon: const Icon(
+                              Icons.camera_alt,
+                              size: 16,
+                              color: Colors.white,
+                            ),
+                            onPressed: () =>
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Photo update coming soon!'),
+                                    backgroundColor: Colors.blue,
+                                  ),
+                                ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  _nameController.text,
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey[800],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  _emailController.text,
+                  style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 24),
+
+          // Form
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.grey.withValues(alpha: 0.1),
+                  spreadRadius: 2,
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.person_outline, color: Colors.orange),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Personal Details',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.grey[800],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  _buildTextField(
+                    controller: _nameController,
+                    label: 'Full Name',
+                    icon: Icons.person,
+                    validator: (v) => (v == null || v.isEmpty)
+                        ? 'Please enter your full name'
+                        : null,
+                  ),
+                  const SizedBox(height: 16),
+                  _buildTextField(
+                    controller: _emailController,
+                    label: 'Email Address',
+                    icon: Icons.email,
+                    keyboardType: TextInputType.emailAddress,
+                    validator: (v) => (v == null || v.isEmpty)
+                        ? 'Please enter your email'
+                        : (!v.contains('@') ? 'Invalid email' : null),
+                  ),
+                  const SizedBox(height: 16),
+                  _buildTextField(
+                    controller: _phoneController,
+                    label: 'Phone Number',
+                    icon: Icons.phone,
+                    keyboardType: TextInputType.phone,
+                    validator: (v) => (v == null || v.isEmpty)
+                        ? 'Please enter your phone number'
+                        : null,
+                  ),
+                  const SizedBox(height: 16),
+                  _buildTextField(
+                    controller: _addressController,
+                    label: 'Address',
+                    icon: Icons.location_on,
+                    maxLines: 3,
+                    validator: (v) => (v == null || v.isEmpty)
+                        ? 'Please enter your address'
+                        : null,
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 24),
+
+          if (_isEditing)
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: _cancelEdit,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.grey[600],
+                      side: BorderSide(color: Colors.grey[400]!),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child: const Text(
+                      'Cancel',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: _isSaving
+                        ? null
+                        : () {
+                            if (_formKey.currentState!.validate())
+                              _saveProfile();
+                          },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.orange,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child: _isSaving
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text(
+                            'Save Changes',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                  ),
+                ),
+              ],
+            ),
+
+          const SizedBox(height: 32),
+        ],
       ),
     );
   }
@@ -330,7 +513,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: Colors.orange, width: 2),
+          borderSide: const BorderSide(color: Colors.orange, width: 2),
         ),
         disabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
@@ -344,28 +527,5 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
       style: TextStyle(color: _isEditing ? Colors.grey[800] : Colors.grey[600]),
     );
-  }
-
-  void _saveProfile() {
-    setState(() {
-      _isEditing = false;
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Profile updated successfully!'),
-        backgroundColor: Colors.green,
-      ),
-    );
-  }
-
-  void _cancelEdit() {
-    setState(() {
-      _isEditing = false;
-      // Reset form to original values
-      _nameController.text = 'John Doe';
-      _emailController.text = 'john.doe@example.com';
-      _phoneController.text = '+1 234 567 8900';
-      _addressController.text = '123 Main Street, City, State 12345';
-    });
   }
 }

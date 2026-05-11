@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "254609094639",
+    "project_id": "hrm-doorstep",
+    "storage_bucket": "hrm-doorstep.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:254609094639:android:6629acee119e080a26e81a",
+        "android_client_info": {
+          "package_name": "com.example.hr_doorstep"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDgBebZxi-cS36XL79MGBIRGb_E9mhj8Zk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
