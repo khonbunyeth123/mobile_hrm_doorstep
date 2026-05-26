@@ -30,27 +30,16 @@ class AttendanceService {
       };
     }
 
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('token') ?? '';
-    print('=== SCAN DEBUG ===');
-    print('TOKEN: "$token"');
-    print('QR: "$qrCode"');
-    print('URL: $_apiBase/attendance/scan');
-
     try {
       final headers = await _headers();
-      print('HEADERS: $headers');
 
       final response = await http.post(
         Uri.parse('$_apiBase/attendance/scan'),
         headers: headers,
         body: jsonEncode({'qr_code': code}),
       );
-      print('STATUS: ${response.statusCode}');
-      print('RESPONSE: ${response.body}');
       return _handle(response);
     } catch (e) {
-      print('ERROR: $e');
       return {'success': false, 'message': 'Connection error: $e'};
     }
   }

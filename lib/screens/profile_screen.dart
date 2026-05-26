@@ -460,7 +460,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                     ),
                     child: _isSaving
-                        ? const SizedBox(
+                        ? const SizedBox(     
                             width: 20,
                             height: 20,
                             child: CircularProgressIndicator(

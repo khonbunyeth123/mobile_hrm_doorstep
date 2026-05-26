@@ -1,18 +1,28 @@
-# HR Doorstep
+# HRM Doorstep Mobile
 
-A new Flutter project.
+Flutter mobile app for attendance, leave requests, profile, and notifications.
 
-## Getting Started
+## Environment Configuration
 
-This project is a starting point for a Flutter application.
+The app base URL is configured with `--dart-define` values (no code edits needed).
 
-A few resources to get you started if this is your first Flutter project:
+Supported define keys:
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+- `APP_ENV=dev|prod`
+- `BASE_URL=<full_api_base_url>` (highest priority override)
+- `DEV_BASE_URL=<full_api_base_url>`
+- `PROD_BASE_URL=<full_api_base_url>`
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
-# mobile_doorstep
-# mobile_hrm_doorstep
+Examples:
+
+```bash
+flutter run --dart-define=APP_ENV=dev --dart-define=DEV_BASE_URL=http://192.168.0.104:8080/api
+```
+
+```bash
+flutter run --dart-define=APP_ENV=prod --dart-define=PROD_BASE_URL=https://api.example.com/api
+```
+
+```bash
+flutter build apk --dart-define=BASE_URL=https://api.example.com/api
+```

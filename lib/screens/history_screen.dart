@@ -44,11 +44,13 @@ class _HistoryScreenState extends State<HistoryScreen>
   // ─── Fetch Data ───────────────────────────────────────────
 
   Future<void> _fetchAttendanceHistory() async {
+    if (!mounted) return;
     setState(() {
       _attendanceLoading = true;
       _attendanceError = null;
     });
     final result = await HistoryService.getAttendanceHistory();
+    if (!mounted) return;
     setState(() {
       _attendanceLoading = false;
       if (result['success'] == true) {
@@ -61,11 +63,13 @@ class _HistoryScreenState extends State<HistoryScreen>
   }
 
   Future<void> _fetchLeaveHistory() async {
+    if (!mounted) return;
     setState(() {
       _leaveLoading = true;
       _leaveError = null;
     });
     final result = await HistoryService.getLeaveHistory();
+    if (!mounted) return;
     setState(() {
       _leaveLoading = false;
       if (result['success'] == true) {
