@@ -7,7 +7,6 @@ import '../config/app_config.dart';
 
 class ApiService {
   static String get baseUrl => AppConfig.baseUrl;
-  static const Duration _timeout = Duration(seconds: 15);
 
   static Future<String?> _getToken() async {
     final prefs = await SharedPreferences.getInstance();
@@ -27,19 +26,20 @@ class ApiService {
     final prefs = await SharedPreferences.getInstance();
 
     // ✅ employee login returns 'employee', admin login returns 'user'
-    final rawUser = data['employee'] ?? data['user'];
-    final user = rawUser is Map<String, dynamic>
-        ? rawUser
-        : <String, dynamic>{};
-    final userId = _asInt(user['id']);
+    final user =
+        (data['employee'] ?? data['user'] ?? <String, dynamic>{})
+            as Map<String, dynamic>;
 
     await prefs.setString('token', data['token']?.toString() ?? '');
     await prefs.setString('username', user['username']?.toString() ?? '');
     await prefs.setString('full_name', user['full_name']?.toString() ?? '');
     await prefs.setString('email', user['email']?.toString() ?? '');
     await prefs.setString('role', user['role']?.toString() ?? '');
-    await prefs.setInt('user_id', userId);
-    await prefs.setInt('employee_id', userId); // ✅ ProfileService reads this
+    await prefs.setInt('user_id', (user['id'] as int?) ?? 0);
+    await prefs.setInt(
+      'employee_id',
+      (user['id'] as int?) ?? 0,
+    ); // ✅ ProfileService reads this
     await prefs.setBool('isLoggedIn', true);
   }
 
@@ -48,32 +48,26 @@ class ApiService {
     String username,
     String password,
   ) async {
-    try {
-      // Get FCM token before login
-      final fcmToken = await FirebaseMessaging.instance.getToken();
+    // Get FCM token before login
+    final fcmToken = await FirebaseMessaging.instance.getToken();
 
-      final response = await http
-          .post(
-            Uri.parse('$baseUrl/$endpoint'),
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({
-              'username': username,
-              'password': password,
-              'fcm_token': fcmToken ?? '',
-            }),
-          )
-          .timeout(_timeout);
+    final response = await http.post(
+      Uri.parse('$baseUrl/$endpoint'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'username': username,
+        'password': password,
+        'fcm_token': fcmToken ?? '', // 👈 new
+      }),
+    );
 
-      final data = _parseResponse(response);
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
 
-      if (data['success'] == true) {
-        await _persistLoginData(data);
-      }
-
-      return data;
-    } catch (e) {
-      return {'success': false, 'message': 'Connection error: $e'};
+    if (data['success'] == true) {
+      await _persistLoginData(data);
     }
+
+    return data;
   }
 
   static Future<Map<String, dynamic>> login(
@@ -108,141 +102,88 @@ class ApiService {
 
   static Future<void> logout() async {
     try {
-      await http
-          .post(
-            Uri.parse('$baseUrl/auth/logout'),
-            headers: await _authHeaders(),
-          )
-          .timeout(_timeout);
+      await http.post(
+        Uri.parse('$baseUrl/auth/logout'),
+        headers: await _authHeaders(),
+      );
     } catch (_) {}
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();
   }
 
   static Future<Map<String, dynamic>> getMe() async {
-    final response = await http
-        .get(
-          Uri.parse('$baseUrl/auth/me'),
-          headers: await _authHeaders(),
-        )
-        .timeout(_timeout);
-    return _parseResponse(response);
+    final response = await http.get(
+      Uri.parse('$baseUrl/auth/me'),
+      headers: await _authHeaders(),
+    );
+    return jsonDecode(response.body);
   }
 
   static Future<Map<String, dynamic>> getAdminMe() async {
-    final response = await http
-        .get(
-          Uri.parse('$baseUrl/auth/admin/me'),
-          headers: await _authHeaders(),
-        )
-        .timeout(_timeout);
-    return _parseResponse(response);
+    final response = await http.get(
+      Uri.parse('$baseUrl/auth/admin/me'),
+      headers: await _authHeaders(),
+    );
+    return jsonDecode(response.body);
   }
 
   static Future<Map<String, dynamic>> getEmployeeMe() async {
-    final response = await http
-        .get(
-          Uri.parse('$baseUrl/auth/employee/me'),
-          headers: await _authHeaders(),
-        )
-        .timeout(_timeout);
-    return _parseResponse(response);
+    final response = await http.get(
+      Uri.parse('$baseUrl/auth/employee/me'),
+      headers: await _authHeaders(),
+    );
+    return jsonDecode(response.body);
   }
 
   static Future<List<dynamic>> getEmployees() async {
-    final response = await http
-        .get(
-          Uri.parse('$baseUrl/employees'),
-          headers: await _authHeaders(),
-        )
-        .timeout(_timeout);
-    final data = _parseResponse(response);
+    final response = await http.get(
+      Uri.parse('$baseUrl/employees'),
+      headers: await _authHeaders(),
+    );
+    final data = jsonDecode(response.body);
     if (data['success'] == true) {
-      return (data['data'] as List<dynamic>?) ?? <dynamic>[];
+      return data['data'] as List<dynamic>;
     }
     throw Exception(data['message'] ?? 'Failed to load employees');
   }
 
   static Future<Map<String, dynamic>> getEmployee(int id) async {
-    final response = await http
-        .get(
-          Uri.parse('$baseUrl/employees/$id'),
-          headers: await _authHeaders(),
-        )
-        .timeout(_timeout);
-    final data = _parseResponse(response);
+    final response = await http.get(
+      Uri.parse('$baseUrl/employees/$id'),
+      headers: await _authHeaders(),
+    );
+    final data = jsonDecode(response.body);
     if (data['success'] == true) {
-      return (data['data'] as Map<String, dynamic>?) ?? <String, dynamic>{};
+      return data['data'] as Map<String, dynamic>;
     }
     throw Exception(data['message'] ?? 'Failed to load employee');
   }
 
   static Future<Map<String, dynamic>> getDashboardSummary() async {
-    final response = await http
-        .get(
-          Uri.parse('$baseUrl/dashboard/summary'),
-          headers: await _authHeaders(),
-        )
-        .timeout(_timeout);
-    return _parseResponse(response);
+    final response = await http.get(
+      Uri.parse('$baseUrl/dashboard/summary'),
+      headers: await _authHeaders(),
+    );
+    return jsonDecode(response.body);
   }
 
   static Future<Map<String, dynamic>> get(String endpoint) async {
-    final response = await http
-        .get(
-          Uri.parse('$baseUrl/$endpoint'),
-          headers: await _authHeaders(),
-        )
-        .timeout(_timeout);
-    return _parseResponse(response);
+    final response = await http.get(
+      Uri.parse('$baseUrl/$endpoint'),
+      headers: await _authHeaders(),
+    );
+    return jsonDecode(response.body);
   }
 
   static Future<Map<String, dynamic>> post(
     String endpoint,
     Map<String, dynamic> body,
   ) async {
-    final response = await http
-        .post(
-          Uri.parse('$baseUrl/$endpoint'),
-          headers: await _authHeaders(),
-          body: jsonEncode(body),
-        )
-        .timeout(_timeout);
-    return _parseResponse(response);
-  }
-
-  static int _asInt(dynamic value) {
-    if (value is int) return value;
-    if (value is num) return value.toInt();
-    return int.tryParse(value?.toString() ?? '') ?? 0;
-  }
-
-  static Map<String, dynamic> _parseResponse(http.Response response) {
-    try {
-      final decoded = jsonDecode(response.body);
-      if (decoded is! Map<String, dynamic>) {
-        return {
-          'success': false,
-          'status_code': response.statusCode,
-          'message': 'Unexpected response format',
-        };
-      }
-
-      final result = <String, dynamic>{
-        ...decoded,
-        'status_code': response.statusCode,
-      };
-      result.putIfAbsent(
-        'success',
-        () => response.statusCode >= 200 && response.statusCode < 300,
-      );
-      return result;
-    } catch (_) {
-      return {
-        'success': false,
-        'status_code': response.statusCode,
-        'message': 'Invalid server response (${response.statusCode})',
-      };
-    }
+    final response = await http.post(
+      Uri.parse('$baseUrl/$endpoint'),
+      headers: await _authHeaders(),
+      body: jsonEncode(body),
+    );
+    return jsonDecode(response.body);
   }
 }
