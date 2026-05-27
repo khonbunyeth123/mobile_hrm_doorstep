@@ -55,7 +55,7 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
         return Theme(
           data: Theme.of(context).copyWith(
             colorScheme: ColorScheme.light(
-              primary: Colors.green,
+              primary: Colors.blue,
               onPrimary: Colors.white,
               onSurface: Colors.grey[800]!,
             ),
@@ -131,7 +131,7 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Leave request submitted successfully!'),
-            backgroundColor: Colors.green,
+            backgroundColor: Colors.blue,
             duration: Duration(seconds: 3),
           ),
         );
@@ -182,7 +182,7 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
         title: Text('Leave Request'),
-        backgroundColor: Colors.green,
+        backgroundColor: Colors.blue,
         foregroundColor: Colors.white,
         elevation: 0,
       ),
@@ -197,14 +197,14 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
               padding: EdgeInsets.all(20.0),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [Colors.green, Colors.green.shade300],
+                  colors: [Colors.blue, Colors.blue.shade300],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
                 borderRadius: BorderRadius.circular(12.0),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.green.withValues(alpha: 0.3),
+                    color: Colors.blue.withValues(alpha: 0.3),
                     spreadRadius: 2,
                     blurRadius: 8,
                     offset: Offset(0, 4),
@@ -281,7 +281,7 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8.0),
-                          borderSide: BorderSide(color: Colors.green, width: 2),
+                          borderSide: BorderSide(color: Colors.blue, width: 2),
                         ),
                       ),
                       items: _leaveTypes.map((String type) {
@@ -303,7 +303,7 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
                       children: [
                         Checkbox(
                           value: _isHalfDay,
-                          activeColor: Colors.green,
+                          activeColor: Colors.blue,
                           onChanged: (bool? value) {
                             setState(() {
                               _isHalfDay = value ?? false;
@@ -418,22 +418,22 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
                       Container(
                         padding: EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: Colors.green.withValues(alpha: 0.1),
+                          color: Colors.blue.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(
-                            color: Colors.green.withValues(alpha: 0.3),
+                            color: Colors.blue.withValues(alpha: 0.3),
                           ),
                         ),
                         child: Row(
                           children: [
-                            Icon(Icons.info_outline, color: Colors.green[700]),
+                            Icon(Icons.info_outline, color: Colors.blue[700]),
                             SizedBox(width: 12),
                             Text(
                               'Duration: ${_calculateLeaveDays()} day${_calculateLeaveDays() > 1 ? 's' : ''}',
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
-                                color: Colors.green[700],
+                                color: Colors.blue[700],
                               ),
                             ),
                           ],
@@ -467,7 +467,7 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8.0),
-                          borderSide: BorderSide(color: Colors.green, width: 2),
+                          borderSide: BorderSide(color: Colors.blue, width: 2),
                         ),
                       ),
                       validator: (value) {
@@ -486,7 +486,7 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
                     ElevatedButton(
                       onPressed: _isLoading ? null : _submitLeaveRequest,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green,
+                        backgroundColor: Colors.blue,
                         foregroundColor: Colors.white,
                         padding: EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(

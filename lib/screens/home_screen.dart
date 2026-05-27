@@ -139,28 +139,28 @@ class _HomeScreenState extends State<HomeScreen> {
                 _buildActionCard(
                   icon: Icons.qr_code_scanner,
                   title: 'Scan QR',
-                  subtitle: 'Menu & Orders',
-                  color: Colors.orange,
+                  // subtitle: 'Menu & Orders',
+                  color: Colors.blue,
                   onTap: () => Navigator.pushNamed(context, '/menu-scan'),
                 ),
                 _buildActionCard(
                   icon: Icons.event_note,
                   title: 'Leave Request',
-                  subtitle: 'Apply for leave',
-                  color: Colors.green,
+                  // subtitle: 'Apply for leave',
+                  color: Colors.blue,
                   onTap: () => Navigator.pushNamed(context, '/leave-request'),
                 ),
                 _buildActionCard(
                   icon: Icons.history,
                   title: 'History',
-                  subtitle: 'View records',
-                  color: Colors.purple,
+                  // subtitle: 'View records',
+                  color: Colors.blue,
                   onTap: () => Navigator.pushNamed(context, '/history'),
                 ),
                 _buildActionCard(
                   icon: Icons.person,
                   title: 'Profile',
-                  subtitle: 'Manage account',
+                  // subtitle: 'Manage account',
                   color: Colors.blue,
                   onTap: () => Navigator.pushNamed(context, '/profile'),
                 ),
@@ -199,7 +199,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     title: 'Leave Request Approved',
                     subtitle: 'Your leave request for Jan 15-17 was approved',
                     time: '2 hours ago',
-                    color: Colors.green,
+                    color: Colors.blue,
                   ),
                   Divider(height: 1),
                   _buildActivityItem(
@@ -207,7 +207,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     title: 'QR Code Scanned',
                     subtitle: 'Accessed lunch menu successfully',
                     time: '5 hours ago',
-                    color: Colors.orange,
+                    color: Colors.blue,
                   ),
                   Divider(height: 1),
                   _buildActivityItem(
@@ -223,30 +223,30 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _selectedIndex,
-        onTap: _onItemTapped,
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: Colors.blue,
-        unselectedItemColor: Colors.grey,
-        items: [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.qr_code_scanner),
-            label: 'Scan',
-          ),
-          BottomNavigationBarItem(icon: Icon(Icons.event_note), label: 'Leave'),
-          BottomNavigationBarItem(icon: Icon(Icons.history), label: 'History'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
-        ],
-      ),
+      // bottomNavigationBar: BottomNavigationBar(
+      //   currentIndex: _selectedIndex,
+      //   onTap: _onItemTapped,
+      //   type: BottomNavigationBarType.fixed,
+      //   selectedItemColor: Colors.blue,
+      //   unselectedItemColor: Colors.grey,
+      //   items: [
+      //     BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+      //     BottomNavigationBarItem(
+      //       icon: Icon(Icons.qr_code_scanner),
+      //       label: 'Scan',
+      //     ),
+      //     BottomNavigationBarItem(icon: Icon(Icons.event_note), label: 'Leave'),
+      //     BottomNavigationBarItem(icon: Icon(Icons.history), label: 'History'),
+      //     BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
+      //   ],
+      // ),
     );
   }
 
   Widget _buildActionCard({
     required IconData icon,
     required String title,
-    required String subtitle,
+    // required String subtitle,
     required Color color,
     required VoidCallback onTap,
   }) {
@@ -287,11 +287,11 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             SizedBox(height: 4),
-            Text(
-              subtitle,
-              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-              textAlign: TextAlign.center,
-            ),
+            // Text(
+            //   subtitle,
+            //   style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+            //   textAlign: TextAlign.center,
+            // ),
           ],
         ),
       ),

@@ -108,7 +108,7 @@ class _MenuScanScreenState extends State<MenuScanScreen> {
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
         title: const Text('Attendance Scanner'),
-        backgroundColor: Colors.orange,
+        backgroundColor: Colors.blue,
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
@@ -234,7 +234,7 @@ class _MenuScanScreenState extends State<MenuScanScreen> {
                           key: qrKey,
                           onQRViewCreated: _onQRViewCreated,
                           overlay: QrScannerOverlayShape(
-                            borderColor: Colors.orange,
+                            borderColor: Colors.blue,
                             borderRadius: 12,
                             borderLength: 30,
                             borderWidth: 8,
@@ -277,17 +277,17 @@ class _MenuScanScreenState extends State<MenuScanScreen> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.orange.withValues(alpha: 0.1),
+                  color: Colors.blue.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: Colors.orange.withValues(alpha: 0.3),
+                    color: Colors.blue.withValues(alpha: 0.3),
                   ),
                 ),
                 child: Row(
                   children: [
                     Icon(
                       Icons.info_outline,
-                      color: Colors.orange[700],
+                      color: Colors.blue[700],
                       size: 20,
                     ),
                     const SizedBox(width: 12),
@@ -295,7 +295,7 @@ class _MenuScanScreenState extends State<MenuScanScreen> {
                       child: Text(
                         'Scan the QR code to check in or check out',
                         style: TextStyle(
-                          color: Colors.orange[700],
+                          color: Colors.blue[700],
                           fontSize: 14,
                         ),
                       ),
@@ -380,7 +380,7 @@ class _MenuScanScreenState extends State<MenuScanScreen> {
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.orange,
+                    backgroundColor: Colors.blue,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(

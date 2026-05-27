@@ -1,7 +1,4 @@
-// ============================================================
-//  lib/config/app_config.dart
-//  Central config — change IP/URL here only, never in services
-// ============================================================
+
 
 enum AppEnvironment { dev, prod }
 
@@ -10,7 +7,7 @@ class AppConfig {
   static const AppEnvironment env = AppEnvironment.dev;
 
   // ─── Dev (local network) ────────────────────────────────
-  static const String _devIp = '192.168.0.104';
+  static const String _devIp = '192.168.1.44';
   static const String _devPort = '8080';
   static const String _devBase = 'http://$_devIp:$_devPort/api';
 

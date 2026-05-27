@@ -94,9 +94,9 @@ class _HistoryScreenState extends State<HistoryScreen>
   Color _getLeaveStatusColor(int statusId) {
     switch (statusId) {
       case 0:
-        return Colors.orange;
+        return Colors.blue;
       case 1:
-        return Colors.green;
+        return Colors.blue;
       case 2:
         return Colors.red;
       default:
@@ -162,7 +162,7 @@ class _HistoryScreenState extends State<HistoryScreen>
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
         title: const Text('History'),
-        backgroundColor: Colors.purple,
+        backgroundColor: Colors.blue,
         foregroundColor: Colors.white,
         elevation: 0,
         bottom: TabBar(
@@ -212,7 +212,7 @@ class _HistoryScreenState extends State<HistoryScreen>
                     value: _attendanceLoading
                         ? '...'
                         : '${_attendanceRecords.length}',
-                    color: Colors.orange,
+                    color: Colors.blue,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -221,7 +221,7 @@ class _HistoryScreenState extends State<HistoryScreen>
                     icon: Icons.event_note,
                     title: 'Leave Requests',
                     value: _leaveLoading ? '...' : '${_leaveRecords.length}',
-                    color: Colors.green,
+                    color: Colors.blue,
                   ),
                 ),
               ],
@@ -318,14 +318,14 @@ class _HistoryScreenState extends State<HistoryScreen>
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [Colors.orange, Colors.orange.shade300],
+                  colors: [Colors.blue, Colors.blue.shade300],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
                 borderRadius: BorderRadius.circular(12),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.orange.withValues(alpha: 0.3),
+                    color: Colors.blue.withValues(alpha: 0.3),
                     spreadRadius: 2,
                     blurRadius: 8,
                     offset: const Offset(0, 4),
@@ -419,14 +419,14 @@ class _HistoryScreenState extends State<HistoryScreen>
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [Colors.green, Colors.green.shade300],
+                  colors: [Colors.blue, Colors.blue.shade300],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
                 borderRadius: BorderRadius.circular(12),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.green.withValues(alpha: 0.3),
+                    color: Colors.blue.withValues(alpha: 0.3),
                     spreadRadius: 2,
                     blurRadius: 8,
                     offset: const Offset(0, 4),

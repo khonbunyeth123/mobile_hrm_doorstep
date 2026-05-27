@@ -49,7 +49,7 @@ class _LoginScreenState extends State<LoginScreen> {
       } catch (e) {
         setState(() {
           _isLoading = false;
-          _errorMessage = 'Connection error. Please check your network.';
+          _errorMessage = 'Error processing request';
         });
       }
     }

@@ -170,7 +170,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
         title: const Text('Personal Information'),
-        backgroundColor: Colors.orange,
+        backgroundColor: Colors.blue,
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
@@ -213,7 +213,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Colors.orange))
+          ? const Center(child: CircularProgressIndicator(color: Colors.blue))
           : _errorMessage != null
           ? _buildError()
           : _buildBody(),
@@ -240,7 +240,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               icon: const Icon(Icons.refresh),
               label: const Text('Retry'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.orange,
+                backgroundColor: Colors.blue,
                 foregroundColor: Colors.white,
               ),
             ),
@@ -278,7 +278,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     // ✅ Show photo if available, otherwise show icon
                     CircleAvatar(
                       radius: 50,
-                      backgroundColor: Colors.orange.withValues(alpha: 0.2),
+                      backgroundColor: Colors.blue.withValues(alpha: 0.2),
                       backgroundImage: _photoUrl != null
                           ? NetworkImage(_photoUrl!)
                           : null,
@@ -289,7 +289,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ? const Icon(
                               Icons.person,
                               size: 60,
-                              color: Colors.orange,
+                              color: Colors.blue,
                             )
                           : null,
                     ),
@@ -299,7 +299,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         right: 0,
                         child: CircleAvatar(
                           radius: 18,
-                          backgroundColor: Colors.orange,
+                          backgroundColor: Colors.blue,
                           child: IconButton(
                             icon: const Icon(
                               Icons.camera_alt,
@@ -361,7 +361,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.person_outline, color: Colors.orange),
+                      const Icon(Icons.person_outline, color: Colors.blue),
                       const SizedBox(width: 8),
                       Text(
                         'Personal Details',
@@ -452,7 +452,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               _saveProfile();
                           },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.orange,
+                      backgroundColor: Colors.blue,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
@@ -502,7 +502,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       validator: validator,
       decoration: InputDecoration(
         labelText: label,
-        prefixIcon: Icon(icon, color: Colors.orange),
+        prefixIcon: Icon(icon, color: Colors.blue),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
           borderSide: BorderSide(color: Colors.grey[300]!),
@@ -513,7 +513,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Colors.orange, width: 2),
+          borderSide: const BorderSide(color: Colors.blue, width: 2),
         ),
         disabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
