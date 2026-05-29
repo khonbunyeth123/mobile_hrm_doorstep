@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../config/app_config.dart';
 import '../services/api_service.dart';
 import '../services/profile_service.dart';
+import '../theme/app_theme.dart';
+import '../widgets/app_ui.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -22,7 +24,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _isSaving = false;
   bool _isLoggingOut = false;
   String? _errorMessage;
-  String? _photoUrl; // ✅ photo URL
+  String? _photoUrl;
+  String _role = 'Employee';
 
   Map<String, String> _snapshot = {};
 
@@ -46,6 +49,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _isLoading = true;
       _errorMessage = null;
     });
+
     try {
       final data = await ProfileService.getProfile();
       _applyData(data);
@@ -62,8 +66,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _phoneController.text =
         data['phone']?.toString() ?? data['phone_number']?.toString() ?? '';
     _addressController.text = data['address']?.toString() ?? '';
+    _role = data['role']?.toString().trim().isNotEmpty == true
+        ? data['role'].toString()
+        : 'Employee';
 
-    // ✅ Build full photo URL from relative path
     final photo = data['photo']?.toString() ?? '';
     if (photo.isNotEmpty) {
       final base = AppConfig.baseUrl.replaceAll('/api', '');
@@ -100,15 +106,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (!mounted) return;
       setState(() => _isEditing = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Profile updated successfully!'),
-          backgroundColor: Colors.green,
-        ),
+        const SnackBar(content: Text('Profile updated successfully!')),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Save failed: $e'), backgroundColor: Colors.red),
+        SnackBar(content: Text('Save failed: $e')),
       );
     } finally {
       if (mounted) setState(() => _isSaving = false);
@@ -138,8 +141,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Logout', style: TextStyle(color: Colors.white)),
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.danger),
+            child: const Text('Logout'),
           ),
         ],
       ),
@@ -156,337 +159,79 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (!mounted) return;
       setState(() => _isLoggingOut = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Logout failed. Please try again.'),
-          backgroundColor: Colors.red,
-        ),
+        const SnackBar(content: Text('Logout failed. Please try again.')),
       );
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey[100],
-      appBar: AppBar(
-        title: const Text('Personal Information'),
-        backgroundColor: Colors.blue,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        actions: [
-          if (!_isLoading && _errorMessage == null)
-            IconButton(
-              icon: _isSaving
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : Icon(_isEditing ? Icons.save : Icons.edit),
-              onPressed: _isSaving
-                  ? null
-                  : () {
-                      if (_isEditing) {
-                        if (_formKey.currentState!.validate()) _saveProfile();
-                      } else {
-                        setState(() => _isEditing = true);
-                      }
-                    },
-            ),
-          IconButton(
-            onPressed: _isLoggingOut ? null : _showLogoutDialog,
-            icon: _isLoggingOut
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  )
-                : const Icon(Icons.logout),
-            tooltip: 'Logout',
-          ),
-        ],
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Colors.blue))
-          : _errorMessage != null
-          ? _buildError()
-          : _buildBody(),
-    );
-  }
+  Widget _buildHero() {
+    final name = _nameController.text.trim().isEmpty
+        ? 'Your profile'
+        : _nameController.text.trim();
+    final email = _emailController.text.trim();
 
-  Widget _buildError() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.error_outline, size: 64, color: Colors.red),
-            const SizedBox(height: 16),
-            Text(
-              _errorMessage!,
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.red),
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton.icon(
-              onPressed: _loadProfile,
-              icon: const Icon(Icons.refresh),
-              label: const Text('Retry'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue,
-                foregroundColor: Colors.white,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildBody() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+    return AppSurfaceCard(
+      padding: const EdgeInsets.all(22),
       child: Column(
         children: [
-          // Profile Header
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.grey.withValues(alpha: 0.1),
-                  spreadRadius: 2,
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Column(
-              children: [
-                Stack(
-                  children: [
-                    // ✅ Show photo if available, otherwise show icon
-                    CircleAvatar(
-                      radius: 50,
-                      backgroundColor: Colors.blue.withValues(alpha: 0.2),
-                      backgroundImage: _photoUrl != null
-                          ? NetworkImage(_photoUrl!)
-                          : null,
-                      onBackgroundImageError: _photoUrl != null
-                          ? (_, __) {}
-                          : null,
-                      child: _photoUrl == null
-                          ? const Icon(
-                              Icons.person,
-                              size: 60,
-                              color: Colors.blue,
-                            )
-                          : null,
-                    ),
-                    if (_isEditing)
-                      Positioned(
-                        bottom: 0,
-                        right: 0,
-                        child: CircleAvatar(
-                          radius: 18,
-                          backgroundColor: Colors.blue,
-                          child: IconButton(
-                            icon: const Icon(
-                              Icons.camera_alt,
-                              size: 16,
-                              color: Colors.white,
-                            ),
-                            onPressed: () =>
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Photo update coming soon!'),
-                                    backgroundColor: Colors.blue,
-                                  ),
-                                ),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  _nameController.text,
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.grey[800],
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  _emailController.text,
-                  style: TextStyle(fontSize: 16, color: Colors.grey[600]),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 24),
-
-          // Form
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.grey.withValues(alpha: 0.1),
-                  spreadRadius: 2,
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.person_outline, color: Colors.blue),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Personal Details',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.grey[800],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                  _buildTextField(
-                    controller: _nameController,
-                    label: 'Full Name',
-                    icon: Icons.person,
-                    validator: (v) => (v == null || v.isEmpty)
-                        ? 'Please enter your full name'
-                        : null,
-                  ),
-                  const SizedBox(height: 16),
-                  _buildTextField(
-                    controller: _emailController,
-                    label: 'Email Address',
-                    icon: Icons.email,
-                    keyboardType: TextInputType.emailAddress,
-                    validator: (v) => (v == null || v.isEmpty)
-                        ? 'Please enter your email'
-                        : (!v.contains('@') ? 'Invalid email' : null),
-                  ),
-                  const SizedBox(height: 16),
-                  _buildTextField(
-                    controller: _phoneController,
-                    label: 'Phone Number',
-                    icon: Icons.phone,
-                    keyboardType: TextInputType.phone,
-                    validator: (v) => (v == null || v.isEmpty)
-                        ? 'Please enter your phone number'
-                        : null,
-                  ),
-                  const SizedBox(height: 16),
-                  _buildTextField(
-                    controller: _addressController,
-                    label: 'Address',
-                    icon: Icons.location_on,
-                    maxLines: 3,
-                    validator: (v) => (v == null || v.isEmpty)
-                        ? 'Please enter your address'
-                        : null,
-                  ),
-                ],
+          Stack(
+            children: [
+              CircleAvatar(
+                radius: 52,
+                backgroundColor: AppTheme.brandSoft,
+                backgroundImage: _photoUrl != null ? NetworkImage(_photoUrl!) : null,
+                child: _photoUrl == null
+                    ? const Icon(Icons.person_rounded, size: 58, color: AppTheme.brand)
+                    : null,
               ),
+              Positioned(
+                bottom: 2,
+                right: 2,
+                child: Container(
+                  width: 28,
+                  height: 28,
+                  decoration: const BoxDecoration(
+                    color: AppTheme.brand,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.verified_rounded, color: Colors.white, size: 16),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            name,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+              color: AppTheme.textPrimary,
             ),
           ),
-
-          const SizedBox(height: 24),
-
-          if (_isEditing)
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: _cancelEdit,
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.grey[600],
-                      side: BorderSide(color: Colors.grey[400]!),
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    child: const Text(
-                      'Cancel',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: _isSaving
-                        ? null
-                        : () {
-                            if (_formKey.currentState!.validate())
-                              _saveProfile();
-                          },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    child: _isSaving
-                        ? const SizedBox(     
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Text(
-                            'Save Changes',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                  ),
-                ),
-              ],
+          const SizedBox(height: 4),
+          Text(
+            email.isEmpty ? 'Keep your details up to date' : email,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 13,
+              color: AppTheme.textSecondary,
+              height: 1.35,
             ),
-
-          const SizedBox(height: 32),
+          ),
+          const SizedBox(height: 12),
+          AppStatusPill(
+            label: _role,
+            color: AppTheme.brandDark,
+            backgroundColor: AppTheme.brandSoft,
+            icon: Icons.badge_rounded,
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildTextField({
+  Widget _buildField({
     required TextEditingController controller,
     required String label,
     required IconData icon,
@@ -502,30 +247,184 @@ class _ProfileScreenState extends State<ProfileScreen> {
       validator: validator,
       decoration: InputDecoration(
         labelText: label,
-        prefixIcon: Icon(icon, color: Colors.blue),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: Colors.grey[300]!),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: Colors.grey[300]!),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Colors.blue, width: 2),
-        ),
-        disabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: Colors.grey[200]!),
-        ),
-        filled: true,
-        fillColor: _isEditing ? Colors.white : Colors.grey[50],
-        labelStyle: TextStyle(
-          color: _isEditing ? Colors.grey[700] : Colors.grey[500],
+        prefixIcon: Icon(icon),
+      ),
+    );
+  }
+
+  Widget _buildFormCard() {
+    return AppSurfaceCard(
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const AppSectionHeader(
+              title: 'Personal details',
+              subtitle: 'Edit only what changed to keep the update fast.',
+            ),
+            const SizedBox(height: 16),
+            _buildField(
+              controller: _nameController,
+              label: 'Full name',
+              icon: Icons.person_outline_rounded,
+              validator: (v) =>
+                  (v == null || v.trim().isEmpty) ? 'Please enter your full name' : null,
+            ),
+            const SizedBox(height: 14),
+            _buildField(
+              controller: _emailController,
+              label: 'Email address',
+              icon: Icons.email_outlined,
+              keyboardType: TextInputType.emailAddress,
+              validator: (v) {
+                if (v == null || v.trim().isEmpty) return 'Please enter your email';
+                if (!v.contains('@')) return 'Invalid email';
+                return null;
+              },
+            ),
+            const SizedBox(height: 14),
+            _buildField(
+              controller: _phoneController,
+              label: 'Phone number',
+              icon: Icons.phone_outlined,
+              keyboardType: TextInputType.phone,
+              validator: (v) =>
+                  (v == null || v.trim().isEmpty) ? 'Please enter your phone number' : null,
+            ),
+            const SizedBox(height: 14),
+            _buildField(
+              controller: _addressController,
+              label: 'Address',
+              icon: Icons.location_on_outlined,
+              maxLines: 3,
+              validator: (v) =>
+                  (v == null || v.trim().isEmpty) ? 'Please enter your address' : null,
+            ),
+          ],
         ),
       ),
-      style: TextStyle(color: _isEditing ? Colors.grey[800] : Colors.grey[600]),
+    );
+  }
+
+  Widget _buildActionArea() {
+    if (_isEditing) {
+      return Row(
+        children: [
+          Expanded(
+            child: OutlinedButton(
+              onPressed: _cancelEdit,
+              child: const Text('Cancel'),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: AppPrimaryButton(
+              label: 'Save changes',
+              onPressed: _isSaving
+                  ? null
+                  : () {
+                      if (_formKey.currentState!.validate()) {
+                        _saveProfile();
+                      }
+                    },
+              loading: _isSaving,
+              icon: Icons.save_rounded,
+            ),
+          ),
+        ],
+      );
+    }
+
+    return AppPrimaryButton(
+      label: 'Edit profile',
+      onPressed: () => setState(() => _isEditing = true),
+      icon: Icons.edit_rounded,
+    );
+  }
+
+  Widget _buildSupportCard() {
+    return AppSurfaceCard(
+      color: AppTheme.backgroundAlt,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Icon(Icons.support_agent_rounded, color: AppTheme.brand),
+          ),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Text(
+              'If your profile details look wrong, update them here first and then contact HR if the change needs approval on the server side.',
+              style: TextStyle(
+                fontSize: 13,
+                height: 1.45,
+                color: AppTheme.textPrimary,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Personal information'),
+        actions: [
+          if (!_isLoading && _errorMessage == null)
+            IconButton(
+              tooltip: 'Logout',
+              onPressed: _isLoggingOut ? null : _showLogoutDialog,
+              icon: _isLoggingOut
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.logout_rounded),
+            ),
+        ],
+      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _errorMessage != null
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: AppEmptyState(
+                      icon: Icons.error_outline_rounded,
+                      title: 'Could not load profile',
+                      message: _errorMessage!,
+                      actionLabel: 'Retry',
+                      onAction: _loadProfile,
+                    ),
+                  ),
+                )
+              : RefreshIndicator(
+                  onRefresh: _loadProfile,
+                  child: ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                    children: [
+                      _buildHero(),
+                      const SizedBox(height: 16),
+                      _buildFormCard(),
+                      const SizedBox(height: 16),
+                      _buildActionArea(),
+                      const SizedBox(height: 16),
+                      _buildSupportCard(),
+                    ],
+                  ),
+                ),
     );
   }
 }

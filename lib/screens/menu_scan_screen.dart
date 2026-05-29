@@ -1,7 +1,9 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:qr_code_scanner_plus/qr_code_scanner_plus.dart';
-import 'dart:io';
 import '../services/attendance_service.dart';
+import '../theme/app_theme.dart';
+import '../widgets/app_ui.dart';
 
 class MenuScanScreen extends StatefulWidget {
   const MenuScanScreen({super.key});
@@ -53,15 +55,11 @@ class _MenuScanScreenState extends State<MenuScanScreen> {
           _isSubmitting = false;
           _apiSuccess = result['success'] == true;
           _employeeName = result['employee_name'];
-          if (_apiSuccess) {
-            final label = result['label'] ?? 'Recorded';
-            final time = result['time'] ?? '';
-            _apiMessage = '$label at $time';
-          } else {
-            _apiMessage = result['message'] ?? 'Failed to record attendance';
-          }
+          _apiMessage = _apiSuccess
+              ? '${result['label'] ?? 'Recorded'} at ${result['time'] ?? ''}'
+              : result['message'] ?? 'Failed to record attendance';
         });
-      } catch (e) {
+      } catch (_) {
         if (!mounted) return;
         setState(() {
           _isSubmitting = false;
@@ -74,7 +72,7 @@ class _MenuScanScreenState extends State<MenuScanScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(_apiMessage ?? 'Done'),
-          backgroundColor: _apiSuccess ? Colors.green : Colors.red,
+          backgroundColor: _apiSuccess ? AppTheme.success : AppTheme.danger,
         ),
       );
     });
@@ -98,297 +96,280 @@ class _MenuScanScreenState extends State<MenuScanScreen> {
 
   @override
   void dispose() {
-    controller?.dispose();
     super.dispose();
+  }
+
+  Widget _buildHeader() {
+    return AppSurfaceCard(
+      padding: const EdgeInsets.all(22),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [AppTheme.brandDark, AppTheme.brand],
+                  ),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: const Icon(Icons.qr_code_scanner_rounded, color: Colors.white),
+              ),
+              const SizedBox(width: 14),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Attendance scanner',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      'Point the camera at the QR code to record attendance.',
+                      style: TextStyle(
+                        fontSize: 13,
+                        height: 1.4,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: const [
+              AppStatusPill(
+                label: 'Keep QR centered',
+                color: AppTheme.brandDark,
+                backgroundColor: AppTheme.brandSoft,
+                icon: Icons.center_focus_strong_rounded,
+              ),
+              AppStatusPill(
+                label: 'One scan at a time',
+                color: AppTheme.accent,
+                backgroundColor: AppTheme.accentSoft,
+                icon: Icons.timer_rounded,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildScannerArea() {
+    if (_scanComplete) {
+      final accent = _apiSuccess ? AppTheme.success : AppTheme.danger;
+      final bg = _apiSuccess ? const Color(0xFFEAFBF2) : const Color(0xFFFDECEC);
+      final icon = _apiSuccess ? Icons.check_circle_rounded : Icons.error_rounded;
+
+      return AppSurfaceCard(
+        padding: EdgeInsets.zero,
+        child: Container(
+          height: 360,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                bg,
+                Colors.white,
+              ],
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+            ),
+            borderRadius: AppTheme.cardRadius,
+          ),
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (_isSubmitting)
+                    const CircularProgressIndicator()
+                  else ...[
+                    Icon(icon, color: accent, size: 68),
+                    const SizedBox(height: 16),
+                    if (_employeeName != null) ...[
+                      Text(
+                        _employeeName!,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: AppTheme.textPrimary,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+                    Text(
+                      _apiSuccess ? 'Attendance recorded' : 'Scan failed',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: accent,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    if (_apiMessage != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        _apiMessage!,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: AppTheme.textSecondary,
+                          fontSize: 13,
+                          height: 1.45,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 18),
+                    ElevatedButton.icon(
+                      onPressed: _resetScan,
+                      icon: const Icon(Icons.refresh_rounded),
+                      label: const Text('Scan again'),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return AppSurfaceCard(
+      padding: const EdgeInsets.all(12),
+      child: SizedBox(
+        height: 360,
+        child: ClipRRect(
+          borderRadius: AppTheme.cardRadius,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              QRView(
+                key: qrKey,
+                onQRViewCreated: _onQRViewCreated,
+                overlay: QrScannerOverlayShape(
+                  borderColor: AppTheme.brand,
+                  borderRadius: 18,
+                  borderLength: 32,
+                  borderWidth: 8,
+                  cutOutSize: 250,
+                  overlayColor: Colors.black.withValues(alpha: 0.78),
+                ),
+              ),
+              Positioned(
+                left: 16,
+                right: 16,
+                bottom: 16,
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.72),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: const Text(
+                    'Hold the QR code inside the frame until the app confirms the scan.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      height: 1.35,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
       appBar: AppBar(
         title: const Text('Attendance Scanner'),
-        backgroundColor: Colors.blue,
-        foregroundColor: Colors.white,
-        elevation: 0,
         actions: [
           if (!_scanComplete)
             IconButton(
               icon: Icon(
-                _isFlashOn ? Icons.flash_on : Icons.flash_off,
-                color: Colors.white,
+                _isFlashOn ? Icons.flash_on_rounded : Icons.flash_off_rounded,
               ),
               onPressed: _toggleFlash,
             ),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
           children: [
-            // ── Scanner / Result area ──────────────────────────────────────
-            Expanded(
-              flex: 3,
-              child: Container(
-                width: double.infinity,
-                margin: const EdgeInsets.only(bottom: 24),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12.0),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.grey.withValues(alpha: 0.1),
-                      spreadRadius: 2,
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
+            _buildHeader(),
+            const SizedBox(height: 16),
+            const AppSectionHeader(
+              title: 'Scan area',
+              subtitle: 'Use your camera to record check-in or check-out.',
+            ),
+            const SizedBox(height: 12),
+            _buildScannerArea(),
+            const SizedBox(height: 16),
+            if (!_scanComplete)
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _toggleFlash,
+                      icon: Icon(
+                        _isFlashOn ? Icons.flash_off_rounded : Icons.flash_on_rounded,
+                      ),
+                      label: Text(_isFlashOn ? 'Flash off' : 'Flash on'),
                     ),
-                  ],
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12.0),
-                  child: Stack(
-                    children: [
-                      // ── Success / Fail screen ────────────────────────────
-                      if (_scanComplete)
-                        Container(
-                          width: double.infinity,
-                          height: double.infinity,
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: _apiSuccess
-                                  ? [
-                                      Colors.green.withValues(alpha: 0.8),
-                                      Colors.green.withValues(alpha: 0.4),
-                                    ]
-                                  : [
-                                      Colors.red.withValues(alpha: 0.8),
-                                      Colors.red.withValues(alpha: 0.4),
-                                    ],
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                            ),
-                          ),
-                          child: Center(
-                            child: _isSubmitting
-                                ? const CircularProgressIndicator(
-                                    color: Colors.white,
-                                  )
-                                : Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(
-                                        _apiSuccess
-                                            ? Icons.check_circle
-                                            : Icons.error,
-                                        color: Colors.white,
-                                        size: 64,
-                                      ),
-                                      const SizedBox(height: 16),
-                                      // Employee name from token
-                                      if (_employeeName != null) ...[
-                                        Text(
-                                          _employeeName!,
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 20,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                      ],
-                                      Text(
-                                        _apiSuccess
-                                            ? 'Attendance Recorded!'
-                                            : 'Failed!',
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                      if (_apiMessage != null) ...[
-                                        const SizedBox(height: 8),
-                                        Padding(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 24,
-                                          ),
-                                          child: Text(
-                                            _apiMessage!,
-                                            style: TextStyle(
-                                              color: Colors.white.withValues(
-                                                alpha: 0.9,
-                                              ),
-                                              fontSize: 14,
-                                            ),
-                                            textAlign: TextAlign.center,
-                                          ),
-                                        ),
-                                      ],
-                                    ],
-                                  ),
-                          ),
-                        )
-                      // ── Camera view ──────────────────────────────────────
-                      else
-                        QRView(
-                          key: qrKey,
-                          onQRViewCreated: _onQRViewCreated,
-                          overlay: QrScannerOverlayShape(
-                            borderColor: Colors.blue,
-                            borderRadius: 12,
-                            borderLength: 30,
-                            borderWidth: 8,
-                            cutOutSize: 250,
-                            overlayColor: Colors.black.withValues(alpha: 0.8),
-                          ),
-                        ),
-
-                      // ── Instruction overlay ──────────────────────────────
-                      if (!_scanComplete)
-                        Positioned(
-                          bottom: 20,
-                          left: 20,
-                          right: 20,
-                          child: Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: 0.7),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Text(
-                              'Point camera at the attendance QR code',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                        ),
-                    ],
                   ),
-                ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _resetScan,
+                      icon: const Icon(Icons.restart_alt_rounded),
+                      label: const Text('Reset'),
+                    ),
+                  ),
+                ],
+              ),
+            const SizedBox(height: 16),
+            AppSurfaceCard(
+              color: AppTheme.accentSoft,
+              child: const Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.info_outline_rounded, color: AppTheme.accent),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Tip: If the room is bright, turn the flash off for a cleaner scan. If it is dim, switch it on before aiming at the code.',
+                      style: TextStyle(
+                        fontSize: 13,
+                        height: 1.45,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-
-            // ── Instruction banner (before scan) ───────────────────────────
-            if (!_scanComplete)
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.blue.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: Colors.blue.withValues(alpha: 0.3),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.info_outline,
-                      color: Colors.blue[700],
-                      size: 20,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'Scan the QR code to check in or check out',
-                        style: TextStyle(
-                          color: Colors.blue[700],
-                          fontSize: 14,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-            // ── Result info card (after scan) ──────────────────────────────
-            if (_scanComplete && !_isSubmitting)
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.grey.withValues(alpha: 0.1),
-                      spreadRadius: 2,
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(
-                          _apiSuccess ? Icons.check_circle : Icons.error,
-                          color: _apiSuccess ? Colors.green : Colors.red,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          _apiSuccess ? 'Success' : 'Failed',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: _apiSuccess ? Colors.green : Colors.red,
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (_employeeName != null) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        _employeeName!,
-                        style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 8),
-                    if (_apiMessage != null)
-                      Text(
-                        _apiMessage!,
-                        style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-                      ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Scanned at: ${DateTime.now().hour}:${DateTime.now().minute.toString().padLeft(2, '0')}',
-                      style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-                    ),
-                  ],
-                ),
-              ),
-
-            const SizedBox(height: 24),
-
-            // ── Scan Again button ──────────────────────────────────────────
-            if (_scanComplete)
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: _isSubmitting ? null : _resetScan,
-                  icon: const Icon(Icons.qr_code_scanner),
-                  label: const Text(
-                    'Scan Again',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                ),
-              ),
           ],
         ),
       ),

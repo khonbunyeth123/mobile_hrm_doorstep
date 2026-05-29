@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -5,13 +6,17 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'firebase_options.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
+import 'screens/register_screen.dart';
+import 'screens/forgot_password_screen.dart';
 import 'screens/menu_scan_screen.dart';
 import 'screens/leave_request_screen.dart';
 import 'screens/history_screen.dart';
+import 'screens/calendar_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/notification_screen.dart';
 import 'services/api_service.dart';
 import 'services/notification_service.dart';
+import 'theme/app_theme.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
@@ -19,6 +24,18 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   await NotificationStorage.add(message);
+}
+
+class AppScrollBehavior extends MaterialScrollBehavior {
+  const AppScrollBehavior();
+
+  @override
+  Set<PointerDeviceKind> get dragDevices => {
+        PointerDeviceKind.touch,
+        PointerDeviceKind.mouse,
+        PointerDeviceKind.stylus,
+        PointerDeviceKind.trackpad,
+      };
 }
 
 void main() async {
@@ -44,7 +61,8 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       navigatorKey: navigatorKey,
       title: 'HRM Doorstep',
-      theme: ThemeData(primarySwatch: Colors.blue),
+      theme: AppTheme.lightTheme(),
+      scrollBehavior: const AppScrollBehavior(),
       home: FutureBuilder<bool>(
         future: _isLoggedIn(),
         builder: (context, snapshot) {
@@ -64,8 +82,11 @@ class MyApp extends StatelessWidget {
         '/menu-scan': (context) => const MenuScanScreen(),
         '/leave-request': (context) => const LeaveRequestScreen(),
         '/history': (context) => const HistoryScreen(),
+        '/calendar': (context) => const CalendarScreen(),
         '/profile': (context) => const ProfileScreen(),
         '/notifications': (context) => const NotificationScreen(),
+        '/register': (context) => const RegisterScreen(),
+        '/forgot-password': (context) => const ForgotPasswordScreen(),
       },
     );
   }

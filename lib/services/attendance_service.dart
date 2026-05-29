@@ -30,27 +30,32 @@ class AttendanceService {
       };
     }
 
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('token') ?? '';
-    print('=== SCAN DEBUG ===');
-    print('TOKEN: "$token"');
-    print('QR: "$qrCode"');
-    print('URL: $_apiBase/attendance/scan');
-
     try {
       final headers = await _headers();
-      print('HEADERS: $headers');
 
-      final response = await http.post(
-        Uri.parse('$_apiBase/attendance/scan'),
-        headers: headers,
-        body: jsonEncode({'qr_code': code}),
-      );
-      print('STATUS: ${response.statusCode}');
-      print('RESPONSE: ${response.body}');
-      return _handle(response);
+      final body = jsonEncode({'qr_code': code});
+      final endpoints = <String>[
+        'attendance/scan',
+        'attendance/checkin',
+      ];
+
+      for (final endpoint in endpoints) {
+        final response = await http.post(
+          Uri.parse('$_apiBase/$endpoint'),
+          headers: headers,
+          body: body,
+        );
+
+        if (response.statusCode != 404) {
+          return _handle(response);
+        }
+      }
+
+      return {
+        'success': false,
+        'message': 'Attendance endpoint not found.',
+      };
     } catch (e) {
-      print('ERROR: $e');
       return {'success': false, 'message': 'Connection error: $e'};
     }
   }
