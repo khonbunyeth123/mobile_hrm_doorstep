@@ -7,7 +7,7 @@ class AppConfig {
   static const AppEnvironment env = AppEnvironment.dev;
 
   // ─── Dev (local network) ────────────────────────────────
-  static const String _devIp = '192.168.1.71';
+  static const String _devIp = '172.167.50.119';
   static const String _devPort = '8080';
   static const String _devBase = 'http://$_devIp:$_devPort/api';
 

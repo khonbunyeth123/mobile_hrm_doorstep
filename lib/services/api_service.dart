@@ -3,14 +3,14 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../config/app_config.dart';
+import '../core/auth/token_storage.dart';
 
 
 class ApiService {
   static String get baseUrl => AppConfig.baseUrl;
 
   static Future<String?> _getToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('token');
+    return TokenStorage.readToken();
   }
 
   static Future<Map<String, String>> _authHeaders() async {
@@ -22,7 +22,10 @@ class ApiService {
     };
   }
 
-  static Future<void> _persistLoginData(Map<String, dynamic> data) async {
+  static Future<void> _persistLoginData(
+    Map<String, dynamic> data, {
+    required String fallbackRole,
+  }) async {
     final prefs = await SharedPreferences.getInstance();
 
     // ✅ employee login returns 'employee', admin login returns 'user'
@@ -30,11 +33,20 @@ class ApiService {
         (data['employee'] ?? data['user'] ?? <String, dynamic>{})
             as Map<String, dynamic>;
 
-    await prefs.setString('token', data['token']?.toString() ?? '');
+    final token = data['token']?.toString() ?? '';
+    final role = (user['role'] ?? data['role'] ?? fallbackRole).toString();
+
+    await TokenStorage.saveSession(
+      token: token,
+      role: role,
+      userId: (user['id'] as int?) ?? 0,
+    );
+
+    await prefs.setString('token', token);
     await prefs.setString('username', user['username']?.toString() ?? '');
     await prefs.setString('full_name', user['full_name']?.toString() ?? '');
     await prefs.setString('email', user['email']?.toString() ?? '');
-    await prefs.setString('role', user['role']?.toString() ?? '');
+    await prefs.setString('role', role);
     await prefs.setInt('user_id', (user['id'] as int?) ?? 0);
     await prefs.setInt(
       'employee_id',
@@ -47,6 +59,7 @@ class ApiService {
     String endpoint,
     String username,
     String password,
+    String fallbackRole,
   ) async {
     // Get FCM token before login
     final fcmToken = await FirebaseMessaging.instance.getToken();
@@ -64,7 +77,7 @@ class ApiService {
     final data = jsonDecode(response.body) as Map<String, dynamic>;
 
     if (data['success'] == true) {
-      await _persistLoginData(data);
+      await _persistLoginData(data, fallbackRole: fallbackRole);
     }
 
     return data;
@@ -81,14 +94,14 @@ class ApiService {
     String username,
     String password,
   ) async {
-    return _loginWithEndpoint('auth/admin/login', username, password);
+    return _loginWithEndpoint('auth/admin/login', username, password, 'admin');
   }
 
   static Future<Map<String, dynamic>> loginEmployee(
     String username,
     String password,
   ) async {
-    return _loginWithEndpoint('auth/employee/login', username, password);
+    return _loginWithEndpoint('auth/employee/login', username, password, 'employee');
   }
 
 
@@ -109,6 +122,7 @@ class ApiService {
     } catch (_) {}
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();
+    await TokenStorage.clear();
   }
 
   static Future<Map<String, dynamic>> getMe() async {

@@ -1,11 +1,10 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'firebase_options.dart';
 import 'screens/login_screen.dart';
-import 'screens/home_screen.dart';
+import 'screens/home_gate.dart';
 import 'screens/register_screen.dart';
 import 'screens/forgot_password_screen.dart';
 import 'screens/menu_scan_screen.dart';
@@ -14,6 +13,7 @@ import 'screens/history_screen.dart';
 import 'screens/calendar_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/notification_screen.dart';
+import 'features/admin_calendar/screens/admin_calendar_home_screen.dart';
 import 'services/api_service.dart';
 import 'services/notification_service.dart';
 import 'theme/app_theme.dart';
@@ -50,11 +50,6 @@ void main() async {
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  Future<bool> _isLoggedIn() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool('isLoggedIn') ?? false;
-  }
-
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -63,26 +58,15 @@ class MyApp extends StatelessWidget {
       title: 'HRM Doorstep',
       theme: AppTheme.lightTheme(),
       scrollBehavior: const AppScrollBehavior(),
-      home: FutureBuilder<bool>(
-        future: _isLoggedIn(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Scaffold(
-              body: Center(child: CircularProgressIndicator()),
-            );
-          }
-          return (snapshot.data ?? false)
-              ? const HomeScreen()
-              : const LoginScreen();
-        },
-      ),
+      home: const HomeGate(),
       routes: {
         '/login': (context) => const LoginScreen(),
-        '/home': (context) => const HomeScreen(),
+        '/home': (context) => const HomeGate(),
         '/menu-scan': (context) => const MenuScanScreen(),
         '/leave-request': (context) => const LeaveRequestScreen(),
         '/history': (context) => const HistoryScreen(),
         '/calendar': (context) => const CalendarScreen(),
+        '/admin-calendar': (context) => const AdminCalendarHomeScreen(),
         '/profile': (context) => const ProfileScreen(),
         '/notifications': (context) => const NotificationScreen(),
         '/register': (context) => const RegisterScreen(),
