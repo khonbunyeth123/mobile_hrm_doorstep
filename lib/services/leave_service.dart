@@ -46,11 +46,20 @@ class LeaveService {
       Map<String, dynamic>? lastResult;
 
       for (final endpoint in _leaveCreateEndpoints) {
+        final url = '$_base/$endpoint';
+        final bodyEncoded = jsonEncode(body);
+        print('DEBUG: Request URL: $url');
+        print('DEBUG: Request Headers: $headers');
+        print('DEBUG: Request Body: $bodyEncoded');
+        
         final response = await http.post(
-          Uri.parse('$_base/$endpoint'),
+          Uri.parse(url),
           headers: headers,
-          body: jsonEncode(body),
+          body: bodyEncoded,
         );
+        print('DEBUG: Response Status: ${response.statusCode}');
+        print('DEBUG: Response Body: ${response.body}');
+        
         final result = _handle(response);
         lastResult = result;
 
