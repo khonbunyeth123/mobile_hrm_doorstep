@@ -2,21 +2,21 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:intl/intl.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_ui.dart';
 
-/// Stores notifications in SharedPreferences so they survive app restarts.
 class NotificationStorage {
   static const _key = 'local_notifications';
 
   static Future<List<Map<String, dynamic>>> getAll() async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getStringList(_key) ?? [];
-    return raw
-        .map((e) => jsonDecode(e) as Map<String, dynamic>)
-        .toList()
-        .reversed
-        .toList();
+    return raw.map((e) {
+      final map = jsonDecode(e) as Map<String, dynamic>;
+      map['id'] = e.hashCode.toString();
+      return map;
+    }).toList().reversed.toList();
   }
 
   static Future<void> add(RemoteMessage message) async {
@@ -38,20 +38,28 @@ class NotificationStorage {
     await prefs.setStringList(_key, existing);
   }
 
-  static Future<void> markAllRead() async {
+  static Future<int> unreadCount() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getStringList(_key) ?? [];
+    return raw.map((e) => jsonDecode(e) as Map<String, dynamic>).where((n) => n['read'] == false).length;
+  }
+
+  static Future<void> markAsRead(String id) async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getStringList(_key) ?? [];
     final updated = raw.map((e) {
       final map = jsonDecode(e) as Map<String, dynamic>;
-      map['read'] = true;
+      if (e.hashCode.toString() == id) map['read'] = true;
       return jsonEncode(map);
     }).toList();
     await prefs.setStringList(_key, updated);
   }
 
-  static Future<int> unreadCount() async {
-    final all = await getAll();
-    return all.where((n) => n['read'] == false).length;
+  static Future<void> delete(String id) async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getStringList(_key) ?? [];
+    final updated = raw.where((e) => e.hashCode.toString() != id).toList();
+    await prefs.setStringList(_key, updated);
   }
 
   static Future<void> clearAll() async {
@@ -78,7 +86,6 @@ class _NotificationScreenState extends State<NotificationScreen> {
   }
 
   Future<void> _load() async {
-    await NotificationStorage.markAllRead();
     final items = await NotificationStorage.getAll();
     if (!mounted) return;
     setState(() {
@@ -87,206 +94,104 @@ class _NotificationScreenState extends State<NotificationScreen> {
     });
   }
 
-  Future<void> _clearAll() async {
-    await NotificationStorage.clearAll();
-    if (!mounted) return;
-    setState(() => _notifications = []);
-  }
+  Map<String, List<Map<String, dynamic>>> _groupNotifications() {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
 
-  String _formatTime(String iso) {
-    try {
-      final dt = DateTime.parse(iso).toLocal();
-      final now = DateTime.now();
-      final diff = now.difference(dt);
+    final groups = <String, List<Map<String, dynamic>>>{
+      'Today': [],
+      'Yesterday': [],
+      'Earlier': [],
+    };
 
-      if (diff.inMinutes < 1) return 'Just now';
-      if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
-      if (diff.inHours < 24) return '${diff.inHours}h ago';
-      if (diff.inDays == 1) return 'Yesterday';
-      return MaterialLocalizations.of(context).formatMediumDate(dt);
-    } catch (_) {
-      return '';
+    for (var n in _notifications) {
+      final dt = DateTime.parse(n['time']);
+      final date = DateTime(dt.year, dt.month, dt.day);
+
+      if (date == today) groups['Today']!.add(n);
+      else if (date == yesterday) groups['Yesterday']!.add(n);
+      else groups['Earlier']!.add(n);
     }
-  }
-
-  Widget _buildHeader() {
-    return AppSurfaceCard(
-      padding: const EdgeInsets.all(22),
-      child: Row(
-        children: [
-          Container(
-            width: 54,
-            height: 54,
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [AppTheme.brandDark, AppTheme.brand],
-              ),
-              borderRadius: BorderRadius.circular(18),
-            ),
-            child: const Icon(Icons.notifications_rounded, color: Colors.white),
-          ),
-          const SizedBox(width: 14),
-          const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Notifications',
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
-                    color: AppTheme.textPrimary,
-                  ),
-                ),
-                SizedBox(height: 4),
-                Text(
-                  'Keep track of leave updates and important alerts.',
-                  style: TextStyle(
-                    fontSize: 13,
-                    height: 1.4,
-                    color: AppTheme.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEmpty() {
-    return const AppEmptyState(
-      icon: Icons.notifications_none_rounded,
-      title: 'No notifications yet',
-      message: 'You’ll see approvals, rejections, and updates here as they arrive.',
-    );
-  }
-
-  Widget _buildCard(Map<String, dynamic> notification) {
-    final status = notification['status'] as String? ?? '';
-    final isApproved = status == 'approved';
-    final isRejected = status == 'rejected';
-
-    final accentColor = isApproved
-        ? AppTheme.success
-        : isRejected
-            ? AppTheme.danger
-            : AppTheme.brand;
-    final bgColor = isApproved
-        ? const Color(0xFFEAFBF2)
-        : isRejected
-            ? const Color(0xFFFDECEC)
-            : AppTheme.brandSoft;
-    final iconData = isApproved
-        ? Icons.check_circle_rounded
-        : isRejected
-            ? Icons.cancel_rounded
-            : Icons.notifications_rounded;
-
-    return AppSurfaceCard(
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(
-              color: bgColor,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Icon(iconData, color: accentColor, size: 24),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  notification['title'] as String? ?? 'Notification',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 15,
-                    color: AppTheme.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  notification['body'] as String? ?? '',
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: AppTheme.textSecondary,
-                    height: 1.45,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    AppStatusPill(
-                      label: status.isEmpty ? 'Update' : status.toUpperCase(),
-                      color: accentColor,
-                      backgroundColor: bgColor,
-                      icon: Icons.bolt_rounded,
-                    ),
-                    AppStatusPill(
-                      label: _formatTime(notification['time'] as String? ?? ''),
-                      color: AppTheme.textSecondary,
-                      backgroundColor: AppTheme.backgroundAlt,
-                      icon: Icons.schedule_rounded,
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
+    return groups..removeWhere((k, v) => v.isEmpty);
   }
 
   @override
   Widget build(BuildContext context) {
+    final groups = _groupNotifications();
     return Scaffold(
       appBar: AppBar(
         title: const Text('Notifications'),
         actions: [
-          if (_notifications.isNotEmpty)
-            TextButton(
-              onPressed: _clearAll,
-              child: const Text('Clear all'),
-            ),
+          IconButton(
+            icon: const Icon(Icons.delete_sweep_rounded),
+            onPressed: () async {
+              await NotificationStorage.clearAll();
+              _load();
+            },
+          )
         ],
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _load,
-              child: ListView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+      body: _loading 
+        ? const Center(child: CircularProgressIndicator())
+        : _notifications.isEmpty 
+          ? const AppEmptyState(icon: Icons.notifications_off_rounded, title: 'No notifications', message: 'You are all caught up!')
+          : ListView(
+              children: groups.entries.map((group) => Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildHeader(),
-                  const SizedBox(height: 16),
-                  const AppSectionHeader(
-                    title: 'Recent activity',
-                    subtitle: 'Tap refresh if you expect a new update.',
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Text(group.key, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.textSecondary)),
                   ),
-                  const SizedBox(height: 12),
-                  if (_notifications.isEmpty)
-                    _buildEmpty()
-                  else
-                    ..._notifications.map(
-                      (notification) => Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: _buildCard(notification),
-                      ),
-                    ),
+                  ...group.value.map((n) => _NotificationTile(n, _load)),
                 ],
-              ),
+              )).toList(),
             ),
+    );
+  }
+}
+
+class _NotificationTile extends StatelessWidget {
+  final Map<String, dynamic> n;
+  final VoidCallback onRefresh;
+  const _NotificationTile(this.n, this.onRefresh);
+
+  @override
+  Widget build(BuildContext context) {
+    final isRead = n['read'] as bool;
+    final status = n['status'] as String? ?? '';
+    
+    Color statusColor = AppTheme.brand;
+    if (status == 'approved') statusColor = AppTheme.success;
+    else if (status == 'rejected') statusColor = AppTheme.danger;
+
+    return Dismissible(
+      key: Key(n['id']),
+      direction: DismissDirection.endToStart,
+      background: Container(color: AppTheme.danger, alignment: Alignment.centerRight, padding: const EdgeInsets.only(right: 20), child: const Icon(Icons.delete, color: Colors.white)),
+      onDismissed: (_) async { await NotificationStorage.delete(n['id']); onRefresh(); },
+      child: ListTile(
+        tileColor: isRead ? null : AppTheme.brandSoft.withValues(alpha: 0.1),
+        leading: Icon(Icons.circle, size: 10, color: isRead ? Colors.transparent : AppTheme.brand),
+        title: Text(n['title'], style: TextStyle(fontWeight: isRead ? FontWeight.normal : FontWeight.bold, fontSize: 15)),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 4),
+            Text(n['body'], maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13)),
+            const SizedBox(height: 8),
+            if (status.isNotEmpty)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6)),
+                child: Text(status.toUpperCase(), style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: statusColor)),
+              )
+          ],
+        ),
+        trailing: Text(DateFormat('h:mm a').format(DateTime.parse(n['time'])), style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+        onTap: () async { await NotificationStorage.markAsRead(n['id']); onRefresh(); },
+      ),
     );
   }
 }

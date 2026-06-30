@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../services/history_service.dart';
 import '../theme/app_theme.dart';
-import '../widgets/app_ui.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -13,45 +13,37 @@ class HistoryScreen extends StatefulWidget {
 class _HistoryScreenState extends State<HistoryScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-
-  List<dynamic> _attendanceRecords = [];
+  DateTime _activeDate = DateTime.now();
+  
+  List<Map<String, dynamic>> _groupedAttendance = [];
   bool _attendanceLoading = true;
-  String? _attendanceError;
 
   List<dynamic> _leaveRecords = [];
   bool _leaveLoading = true;
-  String? _leaveError;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 2, vsync: this);
     _fetchAttendanceHistory();
     _fetchLeaveHistory();
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
   }
 
   Future<void> _fetchAttendanceHistory() async {
     setState(() {
       _attendanceLoading = true;
-      _attendanceError = null;
     });
-
-    final result = await HistoryService.getAttendanceHistory();
+    
+    final result = await HistoryService.getAttendanceHistory(
+      month: _activeDate.month,
+      year: _activeDate.year,
+    );
+    
     if (!mounted) return;
-
     setState(() {
       _attendanceLoading = false;
       if (result['success'] == true) {
-        _attendanceRecords = result['data'] ?? [];
-      } else {
-        _attendanceError =
-            result['message'] ?? 'Failed to load attendance history';
+        _groupAttendance(result['data'] ?? []);
       }
     });
   }
@@ -59,73 +51,53 @@ class _HistoryScreenState extends State<HistoryScreen>
   Future<void> _fetchLeaveHistory() async {
     setState(() {
       _leaveLoading = true;
-      _leaveError = null;
     });
-
     final result = await HistoryService.getLeaveHistory();
     if (!mounted) return;
-
     setState(() {
       _leaveLoading = false;
       if (result['success'] == true) {
         _leaveRecords = result['data']?['leave_applications'] ?? [];
-      } else {
-        _leaveError = result['message'] ?? 'Failed to load leave history';
       }
     });
   }
 
-  String _getLeaveStatus(int statusId) {
-    switch (statusId) {
-      case 0:
-        return 'Pending';
-      case 1:
-        return 'Approved';
-      case 2:
-        return 'Rejected';
-      default:
-        return 'Unknown';
-    }
+  void _changeMonth(int delta) {
+    setState(() {
+      _activeDate = DateTime(_activeDate.year, _activeDate.month + delta);
+    });
+    _fetchAttendanceHistory(); 
   }
 
-  Color _getLeaveStatusColor(int statusId) {
-    switch (statusId) {
-      case 0:
-        return AppTheme.warning;
-      case 1:
-        return AppTheme.success;
-      case 2:
-        return AppTheme.danger;
-      default:
-        return AppTheme.textSecondary;
+  void _groupAttendance(List<dynamic> records) {
+    final Map<String, List<dynamic>> map = {};
+    for (var record in records) {
+      final date = record['date']?.toString() ?? 'Unknown';
+      map.putIfAbsent(date, () => []).add(record);
     }
+
+    _groupedAttendance = map.entries.map((e) {
+      final scans = List<Map<String, dynamic>>.from(e.value);
+      scans.sort((a, b) => (a['check_time']?.toString() ?? '').compareTo(b['check_time']?.toString() ?? ''));
+      
+      return {
+        'date': e.key,
+        'scans': scans,
+        'firstIn': scans.isNotEmpty ? scans.first['check_time']?.toString() ?? '' : '',
+        'lastOut': scans.isNotEmpty ? scans.last['check_time']?.toString() ?? '' : '',
+      };
+    }).toList();
+    _groupedAttendance.sort((a, b) => b['date'].compareTo(a['date']));
   }
 
-  Color _getLeaveStatusBackground(int statusId) {
-    switch (statusId) {
-      case 0:
-        return const Color(0xFFFFF7E6);
-      case 1:
-        return const Color(0xFFEAFBF2);
-      case 2:
-        return const Color(0xFFFDECEC);
-      default:
-        return AppTheme.backgroundAlt;
-    }
-  }
-
-  String _formatDate(String? dateStr) {
-    if (dateStr == null) return '-';
+  String _formatDate(String dateStr) {
     try {
       final date = DateTime.parse(dateStr);
       return MaterialLocalizations.of(context).formatMediumDate(date);
-    } catch (_) {
-      return dateStr;
-    }
+    } catch (_) { return dateStr; }
   }
 
-  String _formatTime(String? timeStr) {
-    if (timeStr == null) return '-';
+  String _formatTime(String timeStr) {
     try {
       final parts = timeStr.split(':');
       int hour = int.parse(parts[0]);
@@ -134,418 +106,21 @@ class _HistoryScreenState extends State<HistoryScreen>
       if (hour > 12) hour -= 12;
       if (hour == 0) hour = 12;
       return '$hour:$minute $ampm';
-    } catch (_) {
-      return timeStr;
-    }
+    } catch (_) { return timeStr; }
   }
 
-  int _calculateDays(String? startDate, String? endDate) {
-    if (startDate == null || endDate == null) return 1;
+  String _formatMaybeDate(dynamic value) {
+    final text = value?.toString().trim();
+    if (text == null || text.isEmpty) {
+      return 'N/A';
+    }
+
     try {
-      final start = DateTime.parse(startDate);
-      final end = DateTime.parse(endDate);
-      return end.difference(start).inDays + 1;
+      final date = DateTime.parse(text);
+      return MaterialLocalizations.of(context).formatMediumDate(date);
     } catch (_) {
-      return 1;
+      return text;
     }
-  }
-
-  Widget _buildHero() {
-    return AppSurfaceCard(
-      padding: const EdgeInsets.all(22),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 52,
-                height: 52,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [AppTheme.brandDark, AppTheme.brand],
-                  ),
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                child: const Icon(Icons.timeline_rounded, color: Colors.white),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'History',
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w800,
-                        color: AppTheme.textPrimary,
-                      ),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      'Review attendance and leave activity in one place.',
-                      style: TextStyle(
-                        fontSize: 13,
-                        height: 1.4,
-                        color: AppTheme.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: _MiniSummary(
-                  label: 'Scans',
-                  value: _attendanceLoading ? '...' : '${_attendanceRecords.length}',
-                  color: AppTheme.brand,
-                  icon: Icons.qr_code_scanner_rounded,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _MiniSummary(
-                  label: 'Leaves',
-                  value: _leaveLoading ? '...' : '${_leaveRecords.length}',
-                  color: AppTheme.accent,
-                  icon: Icons.event_note_rounded,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHistoryCard({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required String date,
-    required String time,
-    required String status,
-    required Color statusColor,
-    required Color statusBg,
-  }) {
-    return AppSurfaceCard(
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(
-              color: AppTheme.brandSoft,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Icon(icon, color: AppTheme.brand),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                    color: AppTheme.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  subtitle,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    height: 1.35,
-                    color: AppTheme.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    AppStatusPill(
-                      label: date,
-                      color: AppTheme.textSecondary,
-                      backgroundColor: AppTheme.backgroundAlt,
-                      icon: Icons.calendar_today_rounded,
-                    ),
-                    AppStatusPill(
-                      label: time,
-                      color: AppTheme.textSecondary,
-                      backgroundColor: AppTheme.backgroundAlt,
-                      icon: Icons.schedule_rounded,
-                    ),
-                    AppStatusPill(
-                      label: status,
-                      color: statusColor,
-                      backgroundColor: statusBg,
-                      icon: Icons.verified_rounded,
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAttendanceTab() {
-    return RefreshIndicator(
-      onRefresh: _fetchAttendanceHistory,
-      child: ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-        children: [
-          _buildHero(),
-          const SizedBox(height: 16),
-          const AppSectionHeader(
-            title: 'Attendance',
-            subtitle: 'The latest scans are shown first.',
-          ),
-          const SizedBox(height: 12),
-          if (_attendanceLoading)
-            const Padding(
-              padding: EdgeInsets.only(top: 40),
-              child: Center(child: CircularProgressIndicator()),
-            )
-          else if (_attendanceError != null)
-            AppEmptyState(
-              icon: Icons.error_outline_rounded,
-              title: 'Could not load attendance history',
-              message: _attendanceError!,
-              actionLabel: 'Try again',
-              onAction: _fetchAttendanceHistory,
-            )
-          else if (_attendanceRecords.isEmpty)
-            const AppEmptyState(
-              icon: Icons.qr_code_scanner_rounded,
-              title: 'No scan history yet',
-              message: 'Your attendance scans will appear here after you check in.',
-            )
-          else
-            ..._attendanceRecords.map(
-              (record) => Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _buildHistoryCard(
-                  icon: Icons.qr_code_scanner_rounded,
-                  title: record['check_type_name'] ?? 'Attendance Scan',
-                  subtitle: 'Date: ${_formatDate(record['date'])}',
-                  date: _formatDate(record['date']),
-                  time: _formatTime(record['check_time']),
-                  status: 'Success',
-                  statusColor: AppTheme.success,
-                  statusBg: const Color(0xFFEAFBF2),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildScansTab() {
-    return RefreshIndicator(
-      onRefresh: _fetchAttendanceHistory,
-      child: ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-        children: [
-          _buildHero(),
-          const SizedBox(height: 16),
-          const AppSectionHeader(
-            title: 'Scan records',
-            subtitle: 'Quick access to the most recent check-ins and check-outs.',
-          ),
-          const SizedBox(height: 12),
-          if (_attendanceLoading)
-            const Padding(
-              padding: EdgeInsets.only(top: 40),
-              child: Center(child: CircularProgressIndicator()),
-            )
-          else if (_attendanceError != null)
-            AppEmptyState(
-              icon: Icons.error_outline_rounded,
-              title: 'Could not load scan history',
-              message: _attendanceError!,
-              actionLabel: 'Retry',
-              onAction: _fetchAttendanceHistory,
-            )
-          else if (_attendanceRecords.isEmpty)
-            const AppEmptyState(
-              icon: Icons.qr_code_scanner_rounded,
-              title: 'No scan records',
-              message: 'Use the scanner to create your first attendance record.',
-            )
-          else
-            ..._attendanceRecords.map(
-              (record) => Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _buildHistoryCard(
-                  icon: Icons.qr_code_rounded,
-                  title: record['check_type_name'] ?? 'Scan',
-                  subtitle: 'Attendance recorded successfully',
-                  date: _formatDate(record['date']),
-                  time: _formatTime(record['check_time']),
-                  status: 'Completed',
-                  statusColor: AppTheme.brand,
-                  statusBg: AppTheme.brandSoft,
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLeavesTab() {
-    final pendingCount = _leaveRecords.where((r) => (r['status_id'] ?? 0) == 0).length;
-    final approvedCount = _leaveRecords.where((r) => (r['status_id'] ?? 0) == 1).length;
-
-    return RefreshIndicator(
-      onRefresh: _fetchLeaveHistory,
-      child: ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-        children: [
-          AppSurfaceCard(
-            padding: const EdgeInsets.all(22),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 52,
-                      height: 52,
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [AppTheme.brandDark, AppTheme.brand],
-                        ),
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                      child: const Icon(Icons.event_note_rounded, color: Colors.white),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Leave history',
-                            style: TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.w800,
-                              color: AppTheme.textPrimary,
-                            ),
-                          ),
-                          SizedBox(height: 4),
-                          Text(
-                            'See what is pending, approved, or rejected at a glance.',
-                            style: TextStyle(
-                              fontSize: 13,
-                              height: 1.4,
-                              color: AppTheme.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _MiniSummary(
-                        label: 'Total',
-                        value: _leaveLoading ? '...' : '${_leaveRecords.length}',
-                        color: AppTheme.brand,
-                        icon: Icons.notes_rounded,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _MiniSummary(
-                        label: 'Approved',
-                        value: approvedCount.toString(),
-                        color: AppTheme.success,
-                        icon: Icons.verified_rounded,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _MiniSummary(
-                        label: 'Pending',
-                        value: pendingCount.toString(),
-                        color: AppTheme.warning,
-                        icon: Icons.hourglass_top_rounded,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          const AppSectionHeader(
-            title: 'Requests',
-            subtitle: 'Track every leave request with status and dates.',
-          ),
-          const SizedBox(height: 12),
-          if (_leaveLoading)
-            const Padding(
-              padding: EdgeInsets.only(top: 40),
-              child: Center(child: CircularProgressIndicator()),
-            )
-          else if (_leaveError != null)
-            AppEmptyState(
-              icon: Icons.error_outline_rounded,
-              title: 'Could not load leave history',
-              message: _leaveError!,
-              actionLabel: 'Retry',
-              onAction: _fetchLeaveHistory,
-            )
-          else if (_leaveRecords.isEmpty)
-            const AppEmptyState(
-              icon: Icons.event_note_rounded,
-              title: 'No leave requests yet',
-              message: 'Submitted leave requests will show up here once they are created.',
-            )
-          else
-            ..._leaveRecords.map((record) {
-              final statusId = record['status_id'] ?? 0;
-              final days = _calculateDays(record['start_date'], record['end_date']);
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _buildHistoryCard(
-                  icon: Icons.event_available_rounded,
-                  title: record['leave_type'] ?? 'Leave',
-                  subtitle:
-                      '${record['reason'] ?? ''}${record['reason'] == null || record['reason'].toString().isEmpty ? '' : '\n'}$days day${days == 1 ? '' : 's'}',
-                  date: _formatDate(record['start_date']),
-                  time: _formatDate(record['created_at']),
-                  status: _getLeaveStatus(statusId),
-                  statusColor: _getLeaveStatusColor(statusId),
-                  statusBg: _getLeaveStatusBackground(statusId),
-                ),
-              );
-            }),
-        ],
-      ),
-    );
   }
 
   @override
@@ -555,76 +130,145 @@ class _HistoryScreenState extends State<HistoryScreen>
         title: const Text('History'),
         bottom: TabBar(
           controller: _tabController,
-          tabs: const [
-            Tab(text: 'All'),
-            Tab(text: 'Scans'),
-            Tab(text: 'Leaves'),
-          ],
+          tabs: const [Tab(text: 'Attendance'), Tab(text: 'Leaves')],
         ),
       ),
       body: TabBarView(
         controller: _tabController,
         children: [
-          _buildAttendanceTab(),
-          _buildScansTab(),
-          _buildLeavesTab(),
+          Column(
+            children: [
+              _buildMonthNavigator(),
+              Expanded(
+                child: _attendanceLoading 
+                  ? const Center(child: CircularProgressIndicator())
+                  : RefreshIndicator(
+                      onRefresh: _fetchAttendanceHistory,
+                      child: ListView.separated(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: _groupedAttendance.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 12),
+                        itemBuilder: (_, i) => _AttendanceExpansionTile(_groupedAttendance[i], _formatDate, _formatTime),
+                      ),
+                    ),
+              ),
+            ],
+          ),
+          _leaveLoading
+            ? const Center(child: CircularProgressIndicator())
+            : RefreshIndicator(
+                onRefresh: _fetchLeaveHistory,
+                child: ListView.separated(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: _leaveRecords.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                  itemBuilder: (_, i) => _buildLeaveItem(_leaveRecords[i]),
+                ),
+              ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildMonthNavigator() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          IconButton(onPressed: () => _changeMonth(-1), icon: const Icon(Icons.chevron_left)),
+          Text(DateFormat.yMMMM().format(_activeDate), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          IconButton(onPressed: () => _changeMonth(1), icon: const Icon(Icons.chevron_right)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLeaveItem(Map<String, dynamic> record) {
+    final status = (record['status']?.toString() ?? record['leave_status']?.toString() ?? 'Pending').toLowerCase();
+    final leaveType = record['leave_type']?.toString() ?? record['type']?.toString() ?? 'Leave';
+    final startDate = record['start_date'] ?? record['from_date'] ?? record['start_at'] ?? record['leave_from'];
+    final endDate = record['end_date'] ?? record['to_date'] ?? record['end_at'] ?? record['leave_to'];
+    Color color = AppTheme.warning;
+    if (status == 'approved') {
+      color = AppTheme.success;
+    } else if (status == 'rejected') {
+      color = AppTheme.danger;
+    }
+
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: Colors.grey.shade200)),
+      child: ListTile(
+        leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
+          child: Icon(Icons.event_note_rounded, color: color),
+        ),
+        title: Text(leaveType, style: const TextStyle(fontWeight: FontWeight.bold)),
+        subtitle: Text('${_formatMaybeDate(startDate)} - ${_formatMaybeDate(endDate)}'),
+        trailing: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+          child: Text(status.toUpperCase(), style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold)),
+        ),
       ),
     );
   }
 }
 
-class _MiniSummary extends StatelessWidget {
-  final String label;
-  final String value;
-  final Color color;
-  final IconData icon;
+class _AttendanceExpansionTile extends StatelessWidget {
+  final Map<String, dynamic> data;
+  final String Function(String) formatDate;
+  final String Function(String) formatTime;
 
-  const _MiniSummary({
-    required this.label,
-    required this.value,
-    required this.color,
-    required this.icon,
-  });
+  const _AttendanceExpansionTile(this.data, this.formatDate, this.formatTime);
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(18),
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: Colors.grey.shade200)),
+      child: ExpansionTile(
+        tilePadding: const EdgeInsets.symmetric(horizontal: 16),
+        title: Text(formatDate(data['date']?.toString() ?? ''), style: const TextStyle(fontWeight: FontWeight.bold)),
+        subtitle: Row(
+          children: [
+            const Icon(Icons.login, size: 14, color: AppTheme.textSecondary),
+            const SizedBox(width: 4),
+            Text(formatTime(data['firstIn']?.toString() ?? '')),
+            const SizedBox(width: 12),
+            const Icon(Icons.logout, size: 14, color: AppTheme.textSecondary),
+            const SizedBox(width: 4),
+            Text(formatTime(data['lastOut']?.toString() ?? '')),
+          ],
+        ),
+        children: (data['scans'] as List).map((scan) => _buildScanRow(scan)).toList(),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    );
+  }
+
+  Widget _buildScanRow(Map<String, dynamic> scan) {
+    final type = scan['check_type_name']?.toString() ?? 'Unknown';
+    Color color = AppTheme.brand;
+    IconData icon = Icons.circle;
+
+    switch (type) {
+      case 'Check-In': color = AppTheme.success; icon = Icons.login; break;
+      case 'Break-Out': color = Colors.orange; icon = Icons.coffee; break;
+      case 'Break-In': color = Colors.blue; icon = Icons.work; break;
+      case 'Check-Out': color = AppTheme.danger; icon = Icons.logout; break;
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+      child: Row(
         children: [
-          Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, size: 18, color: color),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-              color: AppTheme.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: AppTheme.textSecondary,
-            ),
-          ),
+          Icon(icon, size: 20, color: color),
+          const SizedBox(width: 12),
+          Text(type, style: TextStyle(color: color, fontWeight: FontWeight.w600)),
+          const Spacer(),
+          Text(formatTime(scan['check_time']), style: const TextStyle(fontWeight: FontWeight.bold)),
         ],
       ),
     );

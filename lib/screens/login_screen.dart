@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 
-enum _LoginMode { employee, admin }
-
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -16,7 +14,6 @@ class _LoginScreenState extends State<LoginScreen> {
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
 
-  _LoginMode _mode = _LoginMode.employee;
   bool _obscurePassword = true;
   bool _isLoading = false;
   String _errorMessage = '';
@@ -39,9 +36,7 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       final username = _usernameController.text.trim();
       final password = _passwordController.text;
-      final data = _mode == _LoginMode.admin
-          ? await ApiService.loginAdmin(username, password)
-          : await ApiService.loginEmployee(username, password);
+      final data = await ApiService.loginEmployee(username, password);
 
       if (!mounted) return;
       setState(() => _isLoading = false);
@@ -63,14 +58,14 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  void _showContactAdminDialog() {
+  void _showContactSupportDialog() {
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('Need access?'),
           content: const Text(
-            'If you do not have a login yet, please contact your HR or system administrator to get an account.',
+            'If you do not have a login yet, please contact your HR or administrator to get an account.',
           ),
           actions: [
             TextButton(
@@ -93,8 +88,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isAdmin = _mode == _LoginMode.admin;
-
     return Scaffold(
       body: SafeArea(
         child: SingleChildScrollView(
@@ -102,9 +95,9 @@ class _LoginScreenState extends State<LoginScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _buildHeroCard(isAdmin),
+              _buildHeroCard(),
               const SizedBox(height: 20),
-              _buildFormCard(isAdmin),
+              _buildFormCard(),
               const SizedBox(height: 16),
               _buildSupportCard(),
             ],
@@ -114,7 +107,7 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _buildHeroCard(bool isAdmin) {
+  Widget _buildHeroCard() {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -177,18 +170,8 @@ class _LoginScreenState extends State<LoginScreen> {
             ],
           ),
           const SizedBox(height: 20),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: const [
-              _HeroChip(icon: Icons.qr_code_scanner_rounded, label: 'Scan fast'),
-              _HeroChip(icon: Icons.event_note_rounded, label: 'Request leave'),
-              _HeroChip(icon: Icons.notifications_rounded, label: 'Stay updated'),
-            ],
-          ),
-          const SizedBox(height: 20),
           Text(
-            isAdmin ? 'Admin access' : 'Employee access',
+            'Employee access',
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.88),
               fontWeight: FontWeight.w600,
@@ -196,9 +179,7 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
           const SizedBox(height: 6),
           Text(
-            isAdmin
-                ? 'Sign in to manage records and approvals.'
-                : 'Sign in to check in, request leave, and track your history.',
+            'Sign in to check in, request leave, and track your history.',
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.95),
               fontSize: 16,
@@ -211,7 +192,7 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _buildFormCard(bool isAdmin) {
+  Widget _buildFormCard() {
     return Container(
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
@@ -246,32 +227,6 @@ class _LoginScreenState extends State<LoginScreen> {
                 fontSize: 14,
                 height: 1.35,
               ),
-            ),
-            const SizedBox(height: 18),
-            ToggleButtons(
-              isSelected: [_mode == _LoginMode.employee, _mode == _LoginMode.admin],
-              onPressed: (index) {
-                setState(() {
-                  _mode = index == 0 ? _LoginMode.employee : _LoginMode.admin;
-                });
-              },
-              borderRadius: BorderRadius.circular(16),
-              borderColor: const Color(0xFFD9E6F8),
-              selectedBorderColor: AppTheme.brand,
-              selectedColor: Colors.white,
-              fillColor: AppTheme.brand,
-              color: AppTheme.textSecondary,
-              constraints: const BoxConstraints(minHeight: 46),
-              children: const [
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 12),
-                  child: Text('Employee'),
-                ),
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 12),
-                  child: Text('Admin'),
-                ),
-              ],
             ),
             const SizedBox(height: 18),
             if (_errorMessage.isNotEmpty) ...[
@@ -363,20 +318,15 @@ class _LoginScreenState extends State<LoginScreen> {
             ElevatedButton(
               onPressed: _isLoading ? null : _login,
               child: _isLoading
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : Text(isAdmin ? 'Sign in as Admin' : 'Sign in'),
-            ),
-            const SizedBox(height: 14),
-            OutlinedButton(
-              onPressed: _openRegister,
-              child: const Text('Create account'),
+              ? const SizedBox(
+                  height: 20,
+                  width: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+              : const Text('Sign in'),
             ),
           ],
         ),
@@ -424,7 +374,7 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
           const SizedBox(height: 10),
           Text(
-            'Contact your administrator if you need an account or have trouble signing in.',
+            'Contact support if you need an account or have trouble signing in.',
             style: TextStyle(
               color: AppTheme.textSecondary,
               height: 1.4,
@@ -432,8 +382,8 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
           const SizedBox(height: 12),
           TextButton(
-            onPressed: _showContactAdminDialog,
-            child: const Text('Contact administrator'),
+            onPressed: _showContactSupportDialog,
+            child: const Text('Contact support'),
           ),
         ],
       ),

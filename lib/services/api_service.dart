@@ -90,13 +90,6 @@ class ApiService {
     return loginEmployee(username, password);
   }
 
-  static Future<Map<String, dynamic>> loginAdmin(
-    String username,
-    String password,
-  ) async {
-    return _loginWithEndpoint('auth/admin/login', username, password, 'admin');
-  }
-
   static Future<Map<String, dynamic>> loginEmployee(
     String username,
     String password,
@@ -128,14 +121,6 @@ class ApiService {
   static Future<Map<String, dynamic>> getMe() async {
     final response = await http.get(
       Uri.parse('$baseUrl/auth/me'),
-      headers: await _authHeaders(),
-    );
-    return jsonDecode(response.body);
-  }
-
-  static Future<Map<String, dynamic>> getAdminMe() async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/auth/admin/me'),
       headers: await _authHeaders(),
     );
     return jsonDecode(response.body);
