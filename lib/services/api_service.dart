@@ -96,6 +96,32 @@ class ApiService {
   }
 
 
+  static Future<Map<String, dynamic>> requestResetLink(String email) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/auth/forgot-password'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'email': email}),
+    );
+    return jsonDecode(response.body);
+  }
+
+  static Future<Map<String, dynamic>> submitNewPassword(
+    String email,
+    String token,
+    String password,
+  ) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/auth/reset-password'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'email': email,
+        'token': token,
+        'password': password,
+      }),
+    );
+    return jsonDecode(response.body);
+  }
+
   static void listenFcmTokenRefresh() {
     FirebaseMessaging.instance.onTokenRefresh.listen((newToken) async {
       try {
