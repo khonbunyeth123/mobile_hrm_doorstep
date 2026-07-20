@@ -103,8 +103,7 @@ class _MenuScanScreenState extends State<MenuScanScreen> {
   }
 
   @override
-  void dispose() {
-    controller?.dispose();
+  void dispose() {                                        
     super.dispose();
   }
 

@@ -82,10 +82,6 @@ class _LoginScreenState extends State<LoginScreen> {
     Navigator.pushNamed(context, '/forgot-password');
   }
 
-  void _openRegister() {
-    Navigator.pushNamed(context, '/register');
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -384,40 +380,6 @@ class _LoginScreenState extends State<LoginScreen> {
           TextButton(
             onPressed: _showContactSupportDialog,
             child: const Text('Contact support'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _HeroChip extends StatelessWidget {
-  final IconData icon;
-  final String label;
-
-  const _HeroChip({required this.icon, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: Colors.white, size: 18),
-          const SizedBox(width: 8),
-          Text(
-            label,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-            ),
           ),
         ],
       ),

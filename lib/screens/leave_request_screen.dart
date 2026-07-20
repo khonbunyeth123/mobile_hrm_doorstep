@@ -96,8 +96,8 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
                   children: [
                     const Text('Request Details', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 16),
-                    DropdownButtonFormField<String>(
-                      value: _selectedLeaveType,
+                     DropdownButtonFormField<String>(
+                      initialValue: _selectedLeaveType,
                       decoration: const InputDecoration(labelText: 'Leave type', border: OutlineInputBorder()),
                       items: _leaveTypes.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
                       onChanged: (v) => setState(() => _selectedLeaveType = v!),

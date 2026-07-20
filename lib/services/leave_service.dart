@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../config/app_config.dart';
@@ -13,7 +14,6 @@ class LeaveService {
     'leave/request',
     'auth/employee/leave/create',
   ];
-
   static Future<Map<String, String>> _headers() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('token') ?? '';
@@ -44,34 +44,34 @@ class LeaveService {
     try {
       final headers = await _headers();
       Map<String, dynamic>? lastResult;
-
       for (final endpoint in _leaveCreateEndpoints) {
         final url = '$_base/$endpoint';
         final bodyEncoded = jsonEncode(body);
-        print('DEBUG: Request URL: $url');
-        print('DEBUG: Request Headers: $headers');
-        print('DEBUG: Request Body: $bodyEncoded');
-        
+        if (kDebugMode) {
+          debugPrint('DEBUG: Request URL: $url');
+          debugPrint('DEBUG: Request Headers: $headers');
+          debugPrint('DEBUG: Request Body: $bodyEncoded');
+        }
+
         final response = await http.post(
           Uri.parse(url),
           headers: headers,
           body: bodyEncoded,
         );
-        print('DEBUG: Response Status: ${response.statusCode}');
-        print('DEBUG: Response Body: ${response.body}');
-        
+        if (kDebugMode) {
+          debugPrint('DEBUG: Response Status: ${response.statusCode}');
+          debugPrint('DEBUG: Response Body: ${response.body}');
+        }
+
         final result = _handle(response);
         lastResult = result;
-
         if (result['success'] == true) {
           return result;
         }
-
         if (!_shouldTryNextEndpoint(result)) {
           return result;
         }
       }
-
       return lastResult ??
           {'success': false, 'message': 'Failed to submit leave request'};
     } catch (e) {
@@ -100,10 +100,7 @@ class LeaveService {
     try {
       final body = jsonDecode(response.body) as Map<String, dynamic>;
       if (body.containsKey('success')) {
-        return {
-          ...body,
-          'status_code': response.statusCode,
-        };
+        return {...body, 'status_code': response.statusCode};
       }
       return {
         'success': response.statusCode >= 200 && response.statusCode < 300,

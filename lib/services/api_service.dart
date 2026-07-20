@@ -5,7 +5,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../config/app_config.dart';
 import '../core/auth/token_storage.dart';
 
-
 class ApiService {
   static String get baseUrl => AppConfig.baseUrl;
 
@@ -31,7 +30,7 @@ class ApiService {
     // ✅ employee login returns 'employee', admin login returns 'user'
     final user =
         (data['employee'] ?? data['user'] ?? <String, dynamic>{})
-            as Map<String, dynamic>;
+          as Map<String, dynamic>;
 
     final token = data['token']?.toString() ?? '';
     final role = (user['role'] ?? data['role'] ?? fallbackRole).toString();
@@ -79,7 +78,6 @@ class ApiService {
     if (data['success'] == true) {
       await _persistLoginData(data, fallbackRole: fallbackRole);
     }
-
     return data;
   }
 

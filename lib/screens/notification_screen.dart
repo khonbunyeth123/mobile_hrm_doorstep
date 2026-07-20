@@ -109,9 +109,13 @@ class _NotificationScreenState extends State<NotificationScreen> {
       final dt = DateTime.parse(n['time']);
       final date = DateTime(dt.year, dt.month, dt.day);
 
-      if (date == today) groups['Today']!.add(n);
-      else if (date == yesterday) groups['Yesterday']!.add(n);
-      else groups['Earlier']!.add(n);
+      if (date == today) {
+        groups['Today']!.add(n);
+      } else if (date == yesterday) {
+        groups['Yesterday']!.add(n);
+      } else {
+        groups['Earlier']!.add(n);
+      }
     }
     return groups..removeWhere((k, v) => v.isEmpty);
   }
@@ -163,8 +167,11 @@ class _NotificationTile extends StatelessWidget {
     final status = n['status'] as String? ?? '';
     
     Color statusColor = AppTheme.brand;
-    if (status == 'approved') statusColor = AppTheme.success;
-    else if (status == 'rejected') statusColor = AppTheme.danger;
+    if (status == 'approved') {
+      statusColor = AppTheme.success;
+    } else if (status == 'rejected') {
+      statusColor = AppTheme.danger;
+    }
 
     return Dismissible(
       key: Key(n['id']),

@@ -5,7 +5,6 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'firebase_options.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_gate.dart';
-import 'screens/register_screen.dart';
 import 'screens/forgot_password_screen.dart';
 import 'screens/menu_scan_screen.dart';
 import 'screens/leave_request_screen.dart';
@@ -69,7 +68,6 @@ class MyApp extends StatelessWidget {
         '/admin-calendar': (context) => const AdminCalendarHomeScreen(),
         '/profile': (context) => const ProfileScreen(),
         '/notifications': (context) => const NotificationScreen(),
-        '/register': (context) => const RegisterScreen(),
         '/forgot-password': (context) => const ForgotPasswordScreen(),
       },
     );

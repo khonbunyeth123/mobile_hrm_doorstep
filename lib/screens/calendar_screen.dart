@@ -7,7 +7,6 @@ import '../services/calendar_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_ui.dart';
 
-enum _CalendarViewMode { month, agenda }
 
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({super.key});
@@ -22,7 +21,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   final Map<String, List<CalendarEvent>> _monthCache = {};
   Map<DateTime, List<CalendarEvent>> _eventsByDay = {};
-  List<CalendarEvent> _monthEvents = [];
 
   bool _isLoading = false;
   String? _error;
@@ -74,7 +72,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 
   void _applyEvents(List<CalendarEvent> events) {
-    _monthEvents = events;
     _eventsByDay = _groupEventsByDay(events);
   }
 
@@ -131,6 +128,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(DateFormat.yMMMM().format(_focusedDay)),
+        actions:[
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _refresh,
+          )
+        ],
       ),
       body: Column(
         children: [
@@ -186,16 +189,33 @@ class _CalendarScreenState extends State<CalendarScreen> {
               },
             ),
           ),
+          if (_error != null)
+          Container(
+            width: double.infinity,
+            color: AppTheme.danger.withValues(alpha: 0.1),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Text(
+              _error!,
+              style: const TextStyle(color: AppTheme.danger, fontSize: 13),
+            ),
+          ),
           Expanded(
-            child: _isLoading 
+            child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
-                : ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: _eventsForDay(_selectedDay ?? _focusedDay).length,
-                    itemBuilder: (context, index) {
-                      final event = _eventsForDay(_selectedDay ?? _focusedDay)[index];
-                      return _buildEventCard(event);
-                    },
+                : RefreshIndicator(
+                    onRefresh: _refresh,
+                    child: ListView.builder(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: _eventsForDay(
+                        _selectedDay ?? _focusedDay,
+                      ).length,
+                      itemBuilder: (context, index) {
+                        final event = _eventsForDay(
+                          _selectedDay ?? _focusedDay,
+                        )[index];
+                        return _buildEventCard(event);
+                      },
+                    ),
                   ),
           ),
         ],
